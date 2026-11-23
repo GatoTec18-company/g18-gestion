@@ -17,7 +17,6 @@ const MENU = [
   ['/pedidos', 'Pedidos bajo encargo', 'pedidos'],
   ['/clientes', 'Clientes', 'clientes'],
   ['/libro', 'Libro diario', 'libro'],
-  ['/cuadre', 'Cuadre de caja', 'cuadre'],
   ['/proveedores', 'Proveedores', 'proveedores'],
   ['/creditos', 'Créditos y bancos', 'creditos'],
   ['/gastos-fijos', 'Gastos fijos', 'gastos_fijos'],
@@ -30,7 +29,7 @@ const MENU = [
 
 export default async function Sistema({ children }) {
   const ctx = await contexto();
-  const items = MENU.filter(([, , p]) => p === 'admin' ? ctx.esAdmin : !p || ctx.puede(p) || (p === 'ventas_registrar' && ctx.puede('ventas_ver_todas')) || (p === 'cartera' && ctx.puede('revision')) || (p === 'cuadre' && ctx.puede('libro')));
+  const items = MENU.filter(([, , p]) => p === 'admin' ? ctx.esAdmin : !p || ctx.puede(p) || (p === 'ventas_registrar' && ctx.puede('ventas_ver_todas')) || (p === 'cartera' && ctx.puede('revision')));
   const avisos = await alertas(ctx);
   const rojas = avisos.filter(a => a.nivel === 'rojo').length;
   let pendientes = 0;
