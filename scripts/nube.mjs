@@ -86,11 +86,26 @@ async function copiar() {
     const enNube = new Set((await tablas(n)).map(t => t.table_name));
     const faltan = enLocal.filter(t => !enNube.has(t.table_name) && !t.table_name.startsWith('_'));
     if (faltan.length) throw new Error(`En Supabase faltan tablas (${faltan.map(t => t.table_name).join(', ')}). Ejecuta primero: node scripts/nube.mjs migrar`);
-    const copiar = enLocal.filter(t => enNube.has(t.table_name) && t.table_name !== '_migraciones');
+    // Orden de copia: primero las tablas a las que otras hacen referencia (llaves foráneas)
+    const deps = (await l.query(`select c.conrelid::regclass::text hija, c.confrelid::regclass::text madre
+      from pg_constraint c where c.contype = 'f' and c.connamespace = 'public'::regnamespace
+        and c.confrelid in (select oid from pg_class where relnamespace = 'public'::regnamespace)`)).rows
+      .map(d => ({ hija: d.hija.replace(/^public\./, ''), madre: d.madre.replace(/^public\./, '') }));
+    const pendientesOrden = enLocal.filter(t => enNube.has(t.table_name) && t.table_name !== '_migraciones');
+    const copiar = [];
+    while (pendientesOrden.length) {
+      const i = pendientesOrden.findIndex(t => !deps.some(d => d.hija === t.table_name && d.madre !== t.table_name
+        && pendientesOrden.some(p => p.table_name === d.madre)));
+      if (i < 0) throw new Error('Dependencias circulares entre tablas: ' + pendientesOrden.map(t => t.table_name).join(', '));
+      copiar.push(...pendientesOrden.splice(i, 1));
+    }
+    const nombre = t => `public.${pg.escapeIdentifier(t.table_name)}`;
 
     await n.query('begin');
-    await n.query('set local session_replication_role = replica'); // sin triggers ni revisión de llaves mientras se copia
-    await n.query(`truncate ${copiar.map(t => `public.${pg.escapeIdentifier(t.table_name)}`).join(', ')} cascade`);
+    // Sin triggers mientras se copia (no repartir bolsillos dos veces, no renumerar, no auditar, no bloquear meses cerrados).
+    // No se usa session_replication_role porque Neon no lo permite.
+    for (const t of copiar) await n.query(`alter table ${nombre(t)} disable trigger user`);
+    await n.query(`truncate ${copiar.map(nombre).join(', ')} cascade`);
     for (const t of copiar) {
       const cols = t.columnas.map(pg.escapeIdentifier).join(', ');
       const filas = (await l.query(`select ${cols} from public.${pg.escapeIdentifier(t.table_name)}`)).rows;
@@ -109,6 +124,7 @@ async function copiar() {
     for (const s of seqs) {
       await n.query(`select setval('public.${s.seq}', coalesce((select max(${pg.escapeIdentifier(s.col)}) from public.${pg.escapeIdentifier(s.tabla)}), 0) + 1, false)`);
     }
+    for (const t of copiar) await n.query(`alter table ${nombre(t)} enable trigger user`);
     await n.query('commit');
 
     // Verificación: mismas filas y mismos totales
