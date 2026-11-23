@@ -1,0 +1,15 @@
+# Dependencias y compilados
+node_modules/
+supabase/pruebas/node_modules/
+.next/
+.next-prueba/
+*.log
+
+# Datos y respaldos: NUNCA van al repositorio
+.datos/
+respaldos/
+importacion/
+
+# Claves y configuración privada
+.env
+.env*.local

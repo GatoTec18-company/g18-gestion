@@ -1,0 +1,30 @@
+{
+  "name": "g18-gestion",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "iniciar": "node scripts/db.mjs iniciar && next dev -p 3018",
+    "db:iniciar": "node scripts/db.mjs iniciar",
+    "db:detener": "node scripts/db.mjs detener",
+    "db:estado": "node scripts/db.mjs estado",
+    "db:migrar": "node scripts/db.mjs migrar",
+    "db:reset": "node scripts/db.mjs reset",
+    "db:respaldo": "node scripts/db.mjs respaldo",
+    "db:verificar": "node scripts/verificar.mjs .env.local",
+    "db:importar": "node scripts/importar_historico.mjs importacion/libro_g18_2026-11.json importacion/sheets_g18_2026-11.json",
+    "dev": "next dev -p 3018",
+    "build": "next build",
+    "start": "next start -p 3018"
+  },
+  "devDependencies": {
+    "embedded-postgres": "^17.10.0-beta.17",
+    "pg": "^8.13.1"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "next": "^15.5.28",
+    "react": "^19.2.9",
+    "react-dom": "^19.2.9",
+    "server-only": "^0.0.1"
+  }
+}

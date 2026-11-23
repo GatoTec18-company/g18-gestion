@@ -1,0 +1,7 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "g18-web", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 3018 },
+    { "name": "g18-prueba", "runtimeExecutable": "node", "runtimeArgs": ["scripts/prueba.mjs", "app", "g18_nube_prueba"], "port": 3019 }
+  ]
+}

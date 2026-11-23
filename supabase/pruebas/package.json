@@ -1,0 +1,7 @@
+{
+  "name": "g18-pruebas-esquema",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node probar_esquema.mjs ../migrations" },
+  "devDependencies": { "@electric-sql/pglite": "0.2.17" }
+}
