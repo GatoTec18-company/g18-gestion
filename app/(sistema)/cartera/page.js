@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Acciones from '@/components/ui/Acciones';
 import { redirect } from 'next/navigation';
 import { sql } from '@/lib/db';
 import { requerir } from '@/lib/sesion';
@@ -56,7 +57,9 @@ export default async function Seguimiento({ searchParams }) {
 
   return (
     <>
-      <Encabezado titulo="Seguimiento de ventas" sub={`${varias ? 'Las dos empresas' : ctx.empresa.nombre} · Addi, Sumas Pay, cooperativas y tarjeta de crédito`} />
+      <Encabezado titulo="Seguimiento de ventas" sub={`${varias ? 'Las dos empresas' : ctx.empresa.nombre} · Addi, Sumas Pay, cooperativas y tarjeta de crédito`}>
+        <Acciones excel="/api/exportar?tipo=ventas" />
+      </Encabezado>
 
       <section className="caja">
         <h2>Por entidad</h2>

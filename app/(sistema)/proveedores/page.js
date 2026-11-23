@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Acciones from '@/components/ui/Acciones';
 import { sql } from '@/lib/db';
 import { requerir } from '@/lib/sesion';
 import { hoy as hoyCol } from '@/lib/fechas';
@@ -41,7 +42,9 @@ export default async function Proveedores({ searchParams }) {
 
   return (
     <>
-      <Encabezado titulo="Proveedores" sub={`${empresa.nombre} · lo que se debe, lo que se paga y el cupo`} />
+      <Encabezado titulo="Proveedores" sub={`${empresa.nombre} · lo que se debe, lo que se paga y el cupo`}>
+        <Acciones excel="/api/exportar?tipo=proveedores" />
+      </Encabezado>
 
       <section className="kpis">
         <div className="kpi"><div className="et">Deuda con proveedores</div><div className={`va ${deuda > 0 ? 'neg' : ''}`}>{cop(deuda)}</div>

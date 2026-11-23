@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Acciones from '@/components/ui/Acciones';
 import { sql } from '@/lib/db';
 import { requerir } from '@/lib/sesion';
 import { hoy as hoyCol } from '@/lib/fechas';
@@ -23,6 +24,7 @@ export default async function Pedidos({ searchParams }) {
   return (
     <>
       <Encabezado titulo="Pedidos bajo encargo" sub={varias ? 'Compartidos: ' + ids.map(i => nombreEmpresa[i]).join(' y ') : nombreEmpresa[ids[0]]}>
+        <Acciones excel="/api/exportar?tipo=pedidos" />
         <Link href="/pedidos/nuevo" className="btn btn-link">+ Nuevo pedido</Link>
       </Encabezado>
       <section className="kpis">

@@ -12,10 +12,12 @@ const MENU = [
   ['/ventas', 'Ventas por confirmar', 'ventas_registrar'],
   ['/cartera', 'Seguimiento de ventas', 'cartera'],
   ['/pedidos', 'Pedidos bajo encargo', 'pedidos'],
+  ['/clientes', 'Clientes', 'clientes'],
   ['/libro', 'Libro diario', 'libro'],
   ['/proveedores', 'Proveedores', 'proveedores'],
   ['/creditos', 'Créditos y bancos', 'creditos'],
   ['/gastos-fijos', 'Gastos fijos', 'gastos_fijos'],
+  ['/reportes', 'Reportes', 'reportes'],
   ['/cierre', 'Cierre de mes', 'cierre'],
   ['/configuracion', 'Configuración', 'configuracion'],
 ];

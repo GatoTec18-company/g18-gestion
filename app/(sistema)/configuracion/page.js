@@ -6,7 +6,8 @@ import FormAccion from '@/components/formularios/FormAccion';
 import { guardarEmpresa } from '@/servidor/configuracion';
 
 export default async function ConfigEmpresa({ searchParams }) {
-  const { empresa } = await requerir(searchParams, 'configuracion');
+  const { empresa, usuario } = await requerir(searchParams, 'configuracion');
+  const esAdmin = usuario.empresas.every(x => x.rol === 'admin');
   const mes = mesActual();
   const [e, meta] = await Promise.all([
     uno('select nombre, nit, ventas_mueven_caja from empresas where id = $1', [empresa.id]),
@@ -27,6 +28,12 @@ export default async function ConfigEmpresa({ searchParams }) {
               Actívalo solo si dejas de registrar el total del día, para no sumar dos veces.</small></span>
         </label>
       </FormAccion>
+      {esAdmin && <>
+        <h3 className="subt">Respaldo de los datos</h3>
+        <p className="muted">Descarga una copia de todo (las dos empresas) para guardarla en tu computador o en Drive. No incluye contraseñas.
+          Hazlo al menos una vez al mes, después del cierre.</p>
+        <a className="btn-sec btn-link" href="/api/respaldo" download>⬇ Descargar respaldo</a>
+      </>}
     </section>
   );
 }

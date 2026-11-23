@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Acciones from '@/components/ui/Acciones';
 import { sql } from '@/lib/db';
 import { requerir } from '@/lib/sesion';
 import { hoy as hoyCol } from '@/lib/fechas';
@@ -42,7 +43,9 @@ export default async function Creditos({ searchParams }) {
 
   return (
     <>
-      <Encabezado titulo="Créditos y bancos" sub={`${empresa.nombre} · lo que se debe a bancos, tarjetas y préstamos`} />
+      <Encabezado titulo="Créditos y bancos" sub={`${empresa.nombre} · lo que se debe a bancos, tarjetas y préstamos`}>
+        <Acciones excel="/api/exportar?tipo=creditos" />
+      </Encabezado>
 
       <section className="kpis">
         <div className="kpi"><div className="et">Deuda con bancos</div><div className={`va ${deuda > 0 ? 'neg' : ''}`}>{cop(deuda)}</div>

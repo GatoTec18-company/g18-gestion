@@ -177,3 +177,23 @@ details > summary { cursor: pointer; color: var(--marca); font-weight: 600; font
 .link-editar:hover { color: var(--marca); border-color: var(--marca); }
 
 .estado-cierre { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; background: var(--azul-f); border-color: var(--azul-f); }
+
+/* Reportes */
+.acciones { display: flex; gap: 6px; }
+.barras-h { display: grid; gap: 8px; }
+.barra-h { display: grid; grid-template-columns: 170px 1fr 110px 44px; gap: 10px; align-items: center; font-size: 13px; }
+.barra-h .pista { height: 14px; background: var(--gris-f); border-radius: 4px; overflow: hidden; }
+.barra-h .pista > div { height: 100%; border-radius: 4px; }
+.fila-total td { background: var(--fondo); }
+@media (max-width: 600px) { .barra-h { grid-template-columns: 1fr 90px; } .barra-h .pista, .barra-h .muted { display: none; } }
+
+/* Imprimir / guardar como PDF: solo el contenido */
+@media print {
+  body { background: #fff; font-size: 11px; }
+  .lateral, .no-imprimir, .mes-nav, form, details, .filtros, .etapas, .subnav { display: none !important; }
+  .app { display: block; }
+  .contenido { padding: 0; max-width: none; }
+  .caja, .kpi { border: 1px solid #ccc; break-inside: avoid; box-shadow: none; }
+  .tabla-cont, .tabla-dias { overflow: visible; max-height: none; }
+  a { text-decoration: none; color: inherit; }
+}

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Acciones from '@/components/ui/Acciones';
 import { sql, uno } from '@/lib/db';
 import { requerir } from '@/lib/sesion';
 import { resumenMes } from '@/lib/resumenMes';
@@ -36,12 +37,13 @@ export default async function Cierre({ searchParams }) {
   const ctx = await requerir(searchParams, 'cierre');
   const { empresa, mes, mesInicio } = ctx;
   const e = empresa.id;
-  const [cierre, historico] = await Promise.all([
+  const [cierre, historico, bolsillos] = await Promise.all([
     uno(`select c.*, coalesce(m.nombre, '—') quien from cierres_mes c left join lateral (select nombre from miembros where user_id = c.cerrado_por limit 1) m on true
          where c.empresa_id = $1 and c.mes = $2`, [e, mesInicio]),
     sql(`select mes, ventas, egresos, flujo_neto, saldo_real, compras_bolsillo_75, gastos_operativos, cartera_pendiente, proveedores_pendientes,
                 (detalle->>'deudaBancos')::numeric deuda_bancos, detalle->'cuadre' cuadre
          from cierres_mes where empresa_id = $1 order by mes desc`, [e]),
+    sql(`select id, codigo, nombre from bolsillos where empresa_id = $1 order by orden, codigo`, [e]),
   ]);
   // Si está cerrado se muestra la foto guardada; si no, los números de este momento
   const r = cierre ? { ...cierre.detalle, ventas: cierre.ventas, egresos: cierre.egresos, flujo: cierre.flujo_neto, saldoReal: cierre.saldo_real }
@@ -57,6 +59,7 @@ export default async function Cierre({ searchParams }) {
     <>
       <Encabezado titulo="Cierre de mes" sub={`${empresa.nombre} · ${nombreMes(mes)}`}>
         <SelectorMes mes={mes} ruta="/cierre" />
+        <Acciones excel={`/api/exportar?tipo=cierre&mes=${mes}`} />
       </Encabezado>
 
       {cierre && (
@@ -109,7 +112,7 @@ export default async function Cierre({ searchParams }) {
             <thead><tr><th>Medio</th><th className="n">Según libro</th><th className="n">Contado</th><th className="n">Diferencia</th></tr></thead>
             <tbody>{[['💵 Efectivo', r.cuadre?.efectivo], ['🏦 Banco', r.cuadre?.banco]].map(([t, c]) => c && (
               <tr key={t}><td>{t}</td><td className="n">{cop(c.libro)}</td><td className="n">{cop(c.contado)}</td>
-                <td className={`n ${Math.abs(c.diferencia) > 1000 ? 'neg' : 'pos'}`}>{cop(c.diferencia)}{Math.abs(c.diferencia) <= 1000 ? ' ✓' : ''}</td></tr>))}
+                <td className={`n ${Math.abs(c.diferencia) > 1000 ? 'neg' : 'pos'}`}>{cop(c.diferencia)}{Math.abs(c.diferencia) <= 1000 ? ' ✓' : ''}{c.ajustado ? ' · ajustado' : ''}</td></tr>))}
             </tbody></table></div>
           {r.nota && <p className="muted">Nota: {r.nota}</p>}
         </section>
@@ -129,6 +132,10 @@ export default async function Cierre({ searchParams }) {
             <label>🏦 Saldo en el banco<input name="banco_contado" inputMode="numeric" required placeholder={`Libro: ${cop(r.saldoBanco)}`} /></label>
             <label>Inventario final (opcional)<input name="inventario_final" inputMode="numeric" /></label>
             <label className="ancho">Nota<input name="nota" placeholder="Ej. diferencia por domicilio sin registrar" /></label>
+            <label className="casilla ancho"><input type="checkbox" name="ajustar" />
+              <span>Ajustar el libro al conteo <small>Si hay diferencia, se registra un ajuste el último día del mes para que el mes siguiente arranque con lo que de verdad hay.</small></span></label>
+            <label>Bolsillo del ajuste<select name="bolsillo_ajuste" defaultValue={bolsillos[bolsillos.length - 1]?.id}>
+              {bolsillos.map(b => <option key={b.id} value={b.id}>{b.codigo} · {b.nombre}</option>)}</select></label>
           </FormAccion>
           <p className="muted">Según el libro hoy: efectivo <b>{cop(r.saldoEfectivo)}</b> · banco <b>{cop(r.saldoBanco)}</b>. El mes siguiente arranca solo con estos saldos en cada bolsillo.</p>
         </section>

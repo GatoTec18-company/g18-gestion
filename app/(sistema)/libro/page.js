@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Acciones from '@/components/ui/Acciones';
 import { sql } from '@/lib/db';
 import { requerir } from '@/lib/sesion';
 import { hoy as hoyCol } from '@/lib/fechas';
@@ -97,6 +98,7 @@ export default async function Libro({ searchParams }) {
     <>
       <Encabezado titulo="Libro diario" sub={`${empresa.nombre} · ${nombreMes(mes)}`}>
         <SelectorMes mes={mes} ruta="/libro" />
+        <Acciones excel={`/api/exportar?tipo=libro&mes=${mes}`} />
       </Encabezado>
 
       {sp.anulado && <p className="aviso ok">Registro anulado. Queda guardado en el historial de cambios.</p>}
