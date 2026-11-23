@@ -63,13 +63,13 @@ npm run dev          # abre la app en http://localhost:3018 (la base debe estar 
 | `supabase/pruebas/` | Pruebas del esquema (`cd supabase/pruebas && npm i && npm test`) |
 | `scripts/` | Base local (`db.mjs`), importación de las hojas, copia de prueba |
 
-## En la nube (GitHub + Supabase + Vercel)
+## En la nube (GitHub + Neon o Supabase + Vercel)
 
 - **Código:** repositorio privado en GitHub. Cada cambio que se sube a `main` lo publica Vercel solo.
-- **Base de datos:** Supabase. La app no usa Supabase Auth: los usuarios están en la tabla `usuarios` y la app maneja su propio inicio de sesión.
-- **Variables en Vercel** (Settings → Environment Variables): `DATABASE_URL` (Supabase → Connect → *Transaction pooler*, puerto 6543) y `SESSION_SECRET` (ver `.env.example`).
+- **Base de datos:** PostgreSQL en la nube: Neon (en uso) o Supabase. Si no es Supabase, `scripts/nube.mjs migrar` crea antes lo mínimo que Supabase trae (`supabase/nube/00_compat_postgres.sql`). La app no usa Supabase Auth: los usuarios están en la tabla `usuarios` y la app maneja su propio inicio de sesión.
+- **Variables en Vercel** (Settings → Environment Variables): `DATABASE_URL` (Neon: la conexión *pooled*, con `-pooler` en el servidor; Supabase: *Transaction pooler*, puerto 6543) y `SESSION_SECRET` (ver `.env.example`).
 
-Subir la base a Supabase desde el Mac (archivo `.env.nube.local` con `NUBE_DATABASE_URL=` la conexión *Session pooler*, puerto 5432; ese archivo no va al repositorio):
+Subir la base a Supabase desde el Mac (archivo `.env.nube.local` con `NUBE_DATABASE_URL=` la conexión directa (Neon: sin `-pooler`; Supabase: *Session pooler*, puerto 5432); ese archivo no va al repositorio):
 
 ```bash
 node scripts/nube.mjs probar     # prueba la conexión

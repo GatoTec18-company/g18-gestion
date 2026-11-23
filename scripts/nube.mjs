@@ -50,6 +50,12 @@ async function migrar() {
   try {
     await c.query(`create table if not exists public._migraciones (nombre text primary key, aplicada_en timestamptz not null default now());
                    alter table public._migraciones enable row level security;`);
+    // Postgres que no es Supabase (Neon u otro): crear antes lo mínimo que Supabase trae
+    const tieneAuth = (await c.query(`select 1 from pg_namespace where nspname = 'auth'`)).rowCount > 0;
+    if (!tieneAuth) {
+      await c.query(fs.readFileSync(path.join(RAIZ, 'supabase/nube/00_compat_postgres.sql'), 'utf8'));
+      console.log('  ✓ compatibilidad (no es Supabase): roles y esquema auth creados');
+    }
     const hechas = new Set((await c.query('select nombre from public._migraciones')).rows.map(r => r.nombre));
     const dir = path.join(RAIZ, 'supabase/migrations');
     const pendientes = fs.readdirSync(dir).filter(f => f.endsWith('.sql')).sort().filter(f => !hechas.has(f));
@@ -62,7 +68,7 @@ async function migrar() {
         console.log('  ✓', f);
       } catch (e) { await c.query('rollback'); throw new Error(`Falló ${f}: ${e.message}`); }
     }
-    console.log(pendientes.length ? `Supabase al día (${pendientes.length} migraciones aplicadas).` : 'Supabase ya estaba al día.');
+    console.log(pendientes.length ? `Base en la nube al día (${pendientes.length} migraciones aplicadas).` : 'La base en la nube ya estaba al día.');
   } finally { await c.end(); }
 }
 
