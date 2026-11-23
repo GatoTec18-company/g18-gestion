@@ -211,3 +211,33 @@ details > summary { cursor: pointer; color: var(--marca); font-weight: 600; font
 .comprobante .quitar { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; border: 0; background: #c0392b; color: #fff; cursor: pointer; line-height: 20px; padding: 0; }
 .det-comprobantes summary { cursor: pointer; color: var(--marca); font-size: 13px; }
 .clip { font-size: 12px; text-decoration: none; margin-left: 4px; }
+
+/* Menú plegable y ajustes para celular (también instalada como app en el iPhone) */
+.barra-movil { display: none; }
+.lateral-cuerpo { display: flex; flex-direction: column; gap: 18px; flex: 1; min-height: 0; }
+.boton-menu { position: relative; background: rgba(255,255,255,.14); color: #fff; border: 0; border-radius: 10px; width: 44px; height: 40px; font-size: 20px; cursor: pointer; }
+.boton-menu .contador { position: absolute; top: -5px; right: -5px; }
+@media (max-width: 860px) {
+  .lateral { position: sticky; top: 0; z-index: 30; height: auto; gap: 0;
+    padding: calc(env(safe-area-inset-top) + 8px) calc(env(safe-area-inset-right) + 14px) 8px calc(env(safe-area-inset-left) + 14px);
+    box-shadow: 0 2px 10px rgba(0,0,0,.15); }
+  .barra-movil { display: flex; align-items: center; justify-content: space-between; }
+  .solo-escritorio { display: none; }
+  .lateral-cuerpo { display: none; }
+  .lateral.abierto .lateral-cuerpo { display: flex; padding: 14px 0 6px; max-height: calc(100vh - 70px - env(safe-area-inset-top)); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .nav { flex-direction: column; flex-wrap: nowrap; }
+  .nav a { padding: 12px 12px; font-size: 16px; }
+  .contenido { padding: 16px calc(env(safe-area-inset-right) + 14px) calc(env(safe-area-inset-bottom) + 40px) calc(env(safe-area-inset-left) + 14px); }
+  .enc h1 { font-size: 21px; }
+  /* Safari amplía la pantalla si el texto de un campo es menor a 16 px */
+  input, select, textarea, .formulario input, .formulario select { font-size: 16px; }
+  .btn, .btn-sec { min-height: 40px; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi .va { font-size: 18px; }
+}
+@media (max-width: 420px) { .kpis { grid-template-columns: 1fr 1fr; gap: 8px; } .kpi { padding: 10px; } }
+@media (max-width: 860px) {
+  .enc-der { flex-wrap: wrap; max-width: 100%; }
+  .acciones { flex-wrap: nowrap; }
+  .acciones .btn-sec { white-space: nowrap; padding: 8px 10px; font-size: 13px; }
+}

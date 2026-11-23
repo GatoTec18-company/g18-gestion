@@ -2,6 +2,7 @@ import { alertas } from '@/lib/alertas';
 import { contexto } from '@/lib/sesion';
 import { ROLES } from '@/lib/permisos';
 import { sql } from '@/lib/db';
+import Lateral from '@/components/marco/Lateral';
 import Navegacion from '@/components/marco/Navegacion';
 import SelectorEmpresa from '@/components/marco/SelectorEmpresa';
 import { cerrarSesion } from '@/servidor/sesion';
@@ -35,15 +36,15 @@ export default async function Sistema({ children }) {
   }
   return (
     <div className="app">
-      <aside className="lateral">
-        <div className="marca"><span className="logo">G18</span><span>Gestión</span></div>
+      <Lateral avisos={rojas}>
+        <div className="marca solo-escritorio"><span className="logo">G18</span><span>Gestión</span></div>
         <SelectorEmpresa empresas={ctx.empresas} actual={ctx.empresa.id} />
         <Navegacion items={items.map(([h, t]) => [h, t, h === '/cartera' && pendientes ? pendientes : h === '/alertas' && avisos.length ? (rojas || avisos.length) : null])} />
         <div className="pie">
           <div className="quien"><b>{ctx.usuario.nombre}</b><span>{ROLES[ctx.rol]?.t ?? ctx.rol}</span></div>
           <form action={cerrarSesion}><button className="btn-salir">Cerrar sesión</button></form>
         </div>
-      </aside>
+      </Lateral>
       <main className="contenido">{children}</main>
     </div>
   );
