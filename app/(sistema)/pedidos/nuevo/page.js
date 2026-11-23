@@ -8,7 +8,9 @@ import CamposCliente from '@/components/formularios/CamposCliente';
 import { crearPedido } from '@/servidor/pedidos';
 
 export default async function NuevoPedido({ searchParams }) {
-  const { empresa } = await requerir(searchParams, 'pedidos');
+  const ctx = await requerir(searchParams, 'pedidos');
+  const { empresa } = ctx;
+  const opciones = ctx.empresas.filter(x => ctx.empresasCon('pedidos').includes(x.id));
   const e = empresa.id;
   const [clientes, proveedores, cuentas] = await Promise.all([
     sql(`select id, nombre, documento, telefono from terceros where empresa_id = $1 and es_cliente order by nombre`, [e]),
@@ -18,12 +20,15 @@ export default async function NuevoPedido({ searchParams }) {
   const hoy = hoyCol();
   return (
     <>
-      <Encabezado titulo="Nuevo pedido bajo encargo" sub={`${empresa.nombre} · el número (PED-…) se asigna solo`}>
+      <Encabezado titulo="Nuevo pedido bajo encargo" sub="El número (PED-…) se asigna solo y es único para las dos empresas">
         <Link href="/pedidos" className="btn-sec btn-link">Volver</Link>
       </Encabezado>
       <section className="caja">
         <FormAccion action={crearPedido} boton="Crear pedido">
-          <input type="hidden" name="empresa_id" value={e} />
+          {opciones.length > 1 ? (
+            <label>Empresa<select name="empresa_id" defaultValue={e}>
+              {opciones.map(x => <option key={x.id} value={x.id}>{x.nombre}</option>)}</select></label>
+          ) : <input type="hidden" name="empresa_id" value={e} />}
           <label>Fecha del pedido<input type="date" name="fecha_pedido" defaultValue={hoy} required /></label>
           <label>Entrega estimada<input type="date" name="fecha_estimada" /></label>
           <label className="ancho">Producto<input name="producto" required placeholder="Ej. Tarjeta de encendido HP 245 G7" /></label>

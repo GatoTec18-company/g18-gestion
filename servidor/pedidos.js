@@ -2,7 +2,7 @@
 import { redirect } from 'next/navigation';
 import { transaccion, uno } from '@/lib/db';
 import { clienteId, fechaValida, monto, texto } from '@/lib/entrada';
-import { accion, deLaEmpresa, exigir } from './comun';
+import { accion, deLaEmpresa, empresaElegida, empresaPermitida, exigir } from './comun';
 
 const ESTADOS = ['por_pedir', 'pedido', 'en_camino', 'recibido_en_tienda', 'entregado', 'cancelado'];
 
@@ -34,15 +34,26 @@ const crearPedidoInterno = accion('pedidos', async (ctx, fd) => {
   exigir(texto(fd.get('producto')), 'Escribe el producto.');
   exigir(abono >= 0, 'El abono no puede ser negativo.');
   exigir(valor === null || abono <= valor, 'El abono es mayor que el valor del pedido.');
+  const empresa = empresaElegida(fd, ctx, 'pedidos');
   const id = await transaccion(async q => {
-    const cliente = await clienteId(q, ctx.empresaId, {
+    const cliente = await clienteId(q, empresa, {
       nombre: fd.get('cliente_nombre'), documento: fd.get('cliente_documento'), telefono: fd.get('cliente_telefono') });
-    const prov = texto(fd.get('proveedor_id'));
-    if (prov) await deLaEmpresa(q, 'terceros', prov, ctx.empresaId);
-    const [p] = await q(`insert into pedidos (empresa_id, fecha_pedido, fecha_estimada, cliente_id, proveedor_id, estado, observaciones)
-                         values ($1,$2,$3,$4,$5,'por_pedir',$6) returning id, numero`,
-      [ctx.empresaId, fecha, fechaValida(fd.get('fecha_estimada')) ? fd.get('fecha_estimada') : null, cliente, prov, texto(fd.get('observaciones'))]);
+    // El proveedor se elige de la lista de la empresa activa; si el pedido es de la otra, se usa el de igual nombre allá
+    let prov = texto(fd.get('proveedor_id'));
+    if (prov) {
+      const [x] = await q(`select t2.id from terceros t1 join terceros t2 on lower(t2.nombre) = lower(t1.nombre) and t2.es_proveedor
+                           where t1.id = $1 and t1.empresa_id = any($3) and t2.empresa_id = $2`, [prov, empresa, ctx.empresasCon('pedidos')]);
+      prov = x?.id ?? null;
+    }
+    // Los pedidos son compartidos: un solo consecutivo PED-### para las dos empresas
+    await q(`select pg_advisory_xact_lock(hashtext('g18_pedidos_numero'))`);
+    const [{ n }] = await q(`select coalesce(max(substring(numero from 5)::int), 0) + 1 n from pedidos where numero ~ '^PED-[0-9]+$'`);
+    const [p] = await q(`insert into pedidos (empresa_id, numero, fecha_pedido, fecha_estimada, cliente_id, proveedor_id, estado, observaciones)
+                         values ($1,$2,$3,$4,$5,$6,'por_pedir',$7) returning id, numero`,
+      [empresa, `PED-${String(n).padStart(3, '0')}`, fecha, fechaValida(fd.get('fecha_estimada')) ? fd.get('fecha_estimada') : null,
+       cliente, prov, texto(fd.get('observaciones'))]);
     await q('insert into pedido_items (pedido_id, descripcion, precio_venta) values ($1,$2,$3)', [p.id, texto(fd.get('producto')), valor]);
+    // El abono queda con el medio (cuenta) de la empresa activa
     if (abono > 0) await registrarAbono(q, ctx, p, { fecha, valor: abono, cuenta: texto(fd.get('cuenta_id')), cliente });
     return p.id;
   }, ctx.usuario.id);
@@ -54,9 +65,9 @@ export const actualizarPedido = accion('pedidos', async (ctx, fd) => {
   const estado = texto(fd.get('estado'));
   exigir(ESTADOS.includes(estado), 'Estado no válido.');
   await transaccion(async q => {
-    await deLaEmpresa(q, 'pedidos', id, ctx.empresaId);
+    const empresa = await empresaPermitida(q, 'pedidos', id, ctx, 'pedidos');
     const prov = texto(fd.get('proveedor_id'));
-    if (prov) await deLaEmpresa(q, 'terceros', prov, ctx.empresaId);
+    if (prov) await deLaEmpresa(q, 'terceros', prov, empresa);
     await q(`update pedidos set estado = $2::estado_pedido, fecha_estimada = $3, proveedor_id = $4, observaciones = $5,
                fecha_entrega_real = case when $2::estado_pedido = 'entregado'
                  then coalesce($6::date, fecha_entrega_real, current_date) else null end
@@ -75,7 +86,7 @@ export const guardarItem = accion('pedidos', async (ctx, fd) => {
   const precio = monto(fd.get('precio_venta'));
   const cantidad = monto(fd.get('cantidad')) || 1;
   await transaccion(async q => {
-    await deLaEmpresa(q, 'pedidos', pedido, ctx.empresaId);
+    await empresaPermitida(q, 'pedidos', pedido, ctx, 'pedidos');
     if (item) await q('update pedido_items set descripcion = $2, precio_venta = $3, cantidad = $4 where id = $1 and pedido_id = $5', [item, descripcion, precio, cantidad, pedido]);
     else await q('insert into pedido_items (pedido_id, descripcion, precio_venta, cantidad) values ($1,$2,$3,$4)', [pedido, descripcion, precio, cantidad]);
   }, ctx.usuario.id);
@@ -83,7 +94,7 @@ export const guardarItem = accion('pedidos', async (ctx, fd) => {
 });
 
 export const abonarPedido = accion('pedidos', async (ctx, fd) => {
-  const p = await uno('select * from v_pedidos where id = $1 and empresa_id = $2', [texto(fd.get('pedido_id')), ctx.empresaId]);
+  const p = await uno('select * from v_pedidos where id = $1 and empresa_id = any($2)', [texto(fd.get('pedido_id')), ctx.empresasCon('pedidos')]);
   exigir(p, 'No se encontró el pedido.');
   const valor = monto(fd.get('monto'));
   exigir(fechaValida(fd.get('fecha')), 'Falta la fecha.');
@@ -97,8 +108,9 @@ export const abonarPedido = accion('pedidos', async (ctx, fd) => {
 });
 
 // Pago al proveedor por un pedido: sale plata de la caja (egreso real en el libro).
+// La plata sale de la caja de la empresa que está activa (los egresos sí van por empresa).
 export const pagarProveedorPedido = accion('pedidos_costos', async (ctx, fd) => {
-  const p = await uno('select * from v_pedidos where id = $1 and empresa_id = $2', [texto(fd.get('pedido_id')), ctx.empresaId]);
+  const p = await uno('select * from v_pedidos where id = $1 and empresa_id = any($2)', [texto(fd.get('pedido_id')), ctx.empresasCon('pedidos')]);
   exigir(p, 'No se encontró el pedido.');
   const valor = monto(fd.get('monto'));
   exigir(fechaValida(fd.get('fecha')), 'Falta la fecha.');

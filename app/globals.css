@@ -54,6 +54,9 @@ td.prod { min-width: 200px; }
 .subnav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
 .subnav a { text-decoration: none; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--borde); background: #fff; }
 .subnav a.activo { background: var(--marca); color: #fff; border-color: var(--marca); }
+.seccion { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--suave); margin: 22px 0 10px; }
+.formulario.egreso { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); margin-bottom: 12px; }
+.mas-datos > summary { margin: 2px 0 8px; }
 .ventas-dia { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
 .total-dia { display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; font-size: 20px; padding-bottom: 6px; }
 .total-dia .muted { font-size: 12px; }

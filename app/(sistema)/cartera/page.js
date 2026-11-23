@@ -23,19 +23,26 @@ export default async function Seguimiento({ searchParams }) {
   const puedeCobrar = ctx.puede('cartera');
   if (!puedeConfirmar && !puedeCobrar) redirect('/sin-permiso');
   const e = ctx.empresa.id;
-  const [ventas, entidades, cuentas] = await Promise.all([
-    sql(`select * from v_cuentas_por_cobrar where empresa_id = $1 order by fecha_estimada_pago nulls last, fecha_venta, creado_en`, [e]),
-    sql(`select ef.nombre, ef.regla, ef.valor, ef.dia_corte,
-           count(c.venta_pago_id) filter (where c.etapa <> 'rechazada') n,
-           coalesce(sum(c.monto) filter (where c.etapa <> 'rechazada'), 0) vendido,
-           coalesce(sum(c.pendiente) filter (where c.etapa in ('por_confirmar','esperando_pago')), 0) pendiente,
-           coalesce(sum(c.monto) filter (where c.etapa = 'por_facturar'), 0) por_facturar,
-           count(*) filter (where c.estado = 'Vencido') vencidas
-         from entidades_financiacion ef
-         left join v_cuentas_por_cobrar c on c.entidad = ef.nombre and c.empresa_id = ef.empresa_id
-         where ef.empresa_id = $1 group by ef.id order by ef.nombre`, [e]),
-    sql(`select id, nombre, tipo from cuentas where empresa_id = $1 and activa and tipo in ('banco','billetera') order by (nombre = 'Bancos') desc, nombre`, [e]),
+  // Compartido entre las empresas donde la persona confirma o registra pagos
+  const ids = [...new Set([...ctx.empresasCon('cartera'), ...ctx.empresasCon('revision')])];
+  const nombreEmpresa = Object.fromEntries(ctx.empresas.map(x => [x.id, x.nombre]));
+  const varias = ids.length > 1;
+  const [ventas, entidades, cuentasTodas] = await Promise.all([
+    sql(`select * from v_cuentas_por_cobrar where empresa_id = any($1) order by fecha_estimada_pago nulls last, fecha_venta, creado_en`, [ids]),
+    sql(`select ef.nombre, ef.regla, ef.valor, ef.dia_corte, x.*
+         from (select distinct on (nombre) nombre, regla, valor, dia_corte from entidades_financiacion
+               where empresa_id = any($1) order by nombre, (empresa_id = $2) desc) ef
+         cross join lateral (
+           select count(c.venta_pago_id) filter (where c.etapa <> 'rechazada') n,
+             coalesce(sum(c.monto) filter (where c.etapa <> 'rechazada'), 0) vendido,
+             coalesce(sum(c.pendiente) filter (where c.etapa in ('por_confirmar','esperando_pago')), 0) pendiente,
+             coalesce(sum(c.monto) filter (where c.etapa = 'por_facturar'), 0) por_facturar,
+             count(*) filter (where c.estado = 'Vencido') vencidas
+           from v_cuentas_por_cobrar c where c.entidad = ef.nombre and c.empresa_id = any($1)) x
+         order by ef.nombre`, [ids, e]),
+    sql(`select id, empresa_id, nombre, tipo from cuentas where empresa_id = any($1) and activa and tipo in ('banco','billetera') order by (nombre = 'Bancos') desc, nombre`, [ids]),
   ]);
+  const cuentasDe = empresaId => cuentasTodas.filter(c => c.empresa_id === empresaId);
   const conteo = Object.fromEntries(ETAPAS.map(([k]) => [k, ventas.filter(v => v.etapa === k).length]));
   const porDefecto = ETAPAS.find(([k]) => k !== 'cerrada' && k !== 'rechazada' && conteo[k])?.[0] ?? 'esperando_pago';
   const etapa = ETAPAS.some(([k]) => k === ctx.sp.etapa) ? ctx.sp.etapa : porDefecto;
@@ -46,7 +53,7 @@ export default async function Seguimiento({ searchParams }) {
 
   return (
     <>
-      <Encabezado titulo="Seguimiento de ventas" sub={`${ctx.empresa.nombre} · Addi, Sumas Pay, cooperativas y tarjeta de crédito`} />
+      <Encabezado titulo="Seguimiento de ventas" sub={`${varias ? 'Las dos empresas' : ctx.empresa.nombre} · Addi, Sumas Pay, cooperativas y tarjeta de crédito`} />
 
       <section className="caja">
         <h2>Por entidad</h2>
@@ -86,6 +93,7 @@ export default async function Seguimiento({ searchParams }) {
                   <div>
                     <b>{v.entidad}</b> · {cop(v.monto)}
                     <div className="muted">{v.producto ?? 'Sin producto'}{v.numero_factura && ` · factura ${v.numero_factura}`}</div>
+                    {varias && <span className="etiqueta-rol" style={{ marginTop: 4, display: 'inline-block' }}>{nombreEmpresa[v.empresa_id]}</span>}
                   </div>
                   <Chip>{v.etapa !== 'por_confirmar' && v.estado === 'Por confirmar' ? 'Sin fecha de pago' : v.estado}</Chip>
                 </div>
@@ -117,8 +125,8 @@ export default async function Seguimiento({ searchParams }) {
                       <input type="hidden" name="venta_pago_id" value={v.venta_pago_id} />
                       <input type="date" name="fecha" defaultValue={hoyCol} required aria-label="Fecha en que llegó" />
                       <input name="monto" defaultValue={v.pendiente} inputMode="numeric" required aria-label="Monto recibido" />
-                      <select name="cuenta_id" defaultValue={cuentas[0]?.id} aria-label="Cuenta donde llegó">
-                        {cuentas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select>
+                      <select name="cuenta_id" defaultValue={cuentasDe(v.empresa_id)[0]?.id} aria-label="Cuenta donde llegó">
+                        {cuentasDe(v.empresa_id).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select>
                     </FormAccion>
                   )}
 

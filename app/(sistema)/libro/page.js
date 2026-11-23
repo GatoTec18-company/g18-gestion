@@ -6,23 +6,43 @@ import { cop, fecha, nombreMes } from '@/lib/formato';
 import { Encabezado, SelectorMes, Vacio } from '@/components/ui/Comunes';
 import FormMovimiento from '@/components/formularios/FormMovimiento';
 import FormVentasDia from '@/components/formularios/FormVentasDia';
+import FormEgreso from '@/components/formularios/FormEgreso';
 
-const FILTROS = [['', 'Todos'], ['ingreso', 'Ingresos'], ['egreso', 'Egresos']];
 const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+const EFECTIVO = ['efectivo', 'caja_menor'];
+
+function TablaEgresos({ filas }) {
+  if (!filas.length) return <Vacio>Sin egresos este mes.</Vacio>;
+  return (
+    <div className="tabla-cont tabla-dias"><table>
+      <thead><tr><th>Fecha</th><th>Motivo</th><th>Bolsillo</th><th>Categoría</th><th className="n">Monto</th></tr></thead>
+      <tbody>{filas.map(m => (
+        <tr key={m.id}>
+          <td className="nw">{fecha(m.fecha).slice(0, 5)}</td>
+          <td>{m.concepto}{(m.tercero || m.gasto_fijo || m.pedido || m.cuenta_si_varias) &&
+            <div className="muted">{[m.cuenta_si_varias, m.tercero, m.gasto_fijo, m.pedido].filter(Boolean).join(' · ')}</div>}</td>
+          <td>{m.bolsillo}</td>
+          <td className="muted">{m.categoria ?? '—'}</td>
+          <td className="n">{cop(m.monto)}</td>
+        </tr>))}
+      </tbody>
+      <tfoot><tr><td colSpan={4}>Total</td><td className="n">{cop(filas.reduce((s, m) => s + m.monto, 0))}</td></tr></tfoot>
+    </table></div>
+  );
+}
 
 export default async function Libro({ searchParams }) {
   const { empresa, mes, mesInicio, sp } = await requerir(searchParams, 'libro');
   const e = empresa.id;
-  const tipo = ['ingreso', 'egreso'].includes(sp.tipo) ? sp.tipo : '';
-  const [movs, cuentas, bolsillos, categorias, proveedores, gastosFijos, ventasDia] = await Promise.all([
-    sql(`select m.id, m.fecha, m.tipo, m.clase, m.monto, m.concepto, c.nombre cuenta, b.codigo bolsillo,
+  const [movs, cuentas, bolsillos, categorias, proveedores, gastosFijos, ventasDia, resumenBolsillos] = await Promise.all([
+    sql(`select m.id, m.fecha, m.tipo, m.clase, m.monto, m.concepto, c.nombre cuenta, c.tipo cuenta_tipo, b.codigo bolsillo,
             cg.nombre categoria, t.nombre tercero, g.concepto gasto_fijo, p.numero pedido
          from movimientos m join cuentas c on c.id = m.cuenta_id
          left join bolsillos b on b.id = m.bolsillo_id left join categorias_gasto cg on cg.id = m.categoria_id
          left join terceros t on t.id = m.tercero_id left join gastos_fijos g on g.id = m.gasto_fijo_id
          left join pedidos p on p.id = m.pedido_id
-         where m.empresa_id = $1 and date_trunc('month', m.fecha) = $2::date and ($3 = '' or m.tipo::text = $3)
-         order by m.fecha desc, m.creado_en desc`, [e, mesInicio, tipo]),
+         where m.empresa_id = $1 and date_trunc('month', m.fecha) = $2::date
+         order by m.fecha desc, m.creado_en desc`, [e, mesInicio]),
     sql(`select id, nombre, tipo from cuentas where empresa_id = $1 and activa order by (nombre = 'Bancos') desc, tipo, nombre`, [e]),
     sql('select id, codigo, nombre from bolsillos where empresa_id = $1 order by orden', [e]),
     sql('select id, nombre from categorias_gasto where empresa_id = $1 and activa order by nombre', [e]),
@@ -31,9 +51,20 @@ export default async function Libro({ searchParams }) {
     sql(`select m.fecha, m.cuenta_id, c.tipo, sum(m.monto) monto from movimientos m join cuentas c on c.id = m.cuenta_id
          where m.empresa_id = $1 and date_trunc('month', m.fecha) = $2::date and m.tipo = 'ingreso' and m.clase = 'operacion'
            and m.concepto like 'Ventas del día%' group by 1, 2, 3`, [e, mesInicio]),
+    // Bolsillos por medio (como la hoja): saldo anterior + entradas − salidas = saldo
+    sql(`select b.codigo, b.nombre, b.orden,
+           case when c.tipo in ('efectivo','caja_menor') then 'efectivo' else 'cuentas' end medio,
+           coalesce(sum(mb.monto) filter (where m.fecha < $2 or m.clase = 'saldo_inicial'), 0) anterior,
+           coalesce(sum(mb.monto) filter (where m.fecha >= $2 and m.clase <> 'saldo_inicial' and mb.monto > 0), 0) entra,
+           coalesce(-sum(mb.monto) filter (where m.fecha >= $2 and m.clase <> 'saldo_inicial' and mb.monto < 0), 0) sale,
+           coalesce(sum(mb.monto), 0) saldo
+         from bolsillos b
+         join movimiento_bolsillos mb on mb.bolsillo_id = b.id
+         join movimientos m on m.id = mb.movimiento_id and m.fecha < ($2::date + interval '1 month')
+         join cuentas c on c.id = m.cuenta_id
+         where b.empresa_id = $1
+         group by b.id, medio order by medio, b.orden`, [e, mesInicio]),
   ]);
-  const ing = movs.filter(m => m.tipo === 'ingreso' && m.clase === 'operacion').reduce((s, m) => s + m.monto, 0);
-  const egr = movs.filter(m => m.tipo === 'egreso' && m.clase === 'operacion').reduce((s, m) => s + m.monto, 0);
 
   // Ventas del día: mapa para el formulario y tabla día por día del mes
   const porDia = {};
@@ -44,12 +75,22 @@ export default async function Libro({ searchParams }) {
   const filas = Array.from({ length: diasMes }, (_, i) => {
     const f = `${mes}-${String(i + 1).padStart(2, '0')}`;
     const del = ventasDia.filter(v => v.fecha === f);
-    const ef = del.filter(v => ['efectivo', 'caja_menor'].includes(v.tipo)).reduce((s, v) => s + v.monto, 0);
-    const bc = del.filter(v => !['efectivo', 'caja_menor'].includes(v.tipo)).reduce((s, v) => s + v.monto, 0);
+    const ef = del.filter(v => EFECTIVO.includes(v.tipo)).reduce((s, v) => s + v.monto, 0);
+    const bc = del.filter(v => !EFECTIVO.includes(v.tipo)).reduce((s, v) => s + v.monto, 0);
     return { f, dia: i + 1, sem: DIAS[new Date(a, m - 1, i + 1).getDay()], ef, bc, futuro: f > hoy };
   });
   const tEf = filas.reduce((s, x) => s + x.ef, 0), tBc = filas.reduce((s, x) => s + x.bc, 0);
   const diaElegido = /^\d{4}-\d{2}-\d{2}$/.test(sp.dia ?? '') ? sp.dia : (hoy.startsWith(mes) ? hoy : `${mes}-01`);
+
+  // Egresos separados por medio, como "Registros de pago en efectivo" y "desde bancos"
+  const cuentasEfectivo = cuentas.filter(c => c.tipo === 'efectivo');
+  const cuentasBanco = cuentas.filter(c => ['banco', 'billetera'].includes(c.tipo));
+  const egresos = movs.filter(x => x.tipo === 'egreso' && x.clase === 'operacion');
+  const egEf = egresos.filter(x => EFECTIVO.includes(x.cuenta_tipo));
+  const egBc = egresos.filter(x => !EFECTIVO.includes(x.cuenta_tipo)).map(x => ({ ...x, cuenta_si_varias: cuentasBanco.length > 1 ? x.cuenta : null }));
+  const otros = movs.filter(x => !(x.tipo === 'egreso' && x.clase === 'operacion') && !x.concepto.startsWith('Ventas del día'));
+  const comunes = { hoy, bolsillos, categorias, proveedores, gastosFijos };
+  const bol = medio => resumenBolsillos.filter(r => r.medio === medio);
 
   return (
     <>
@@ -57,16 +98,17 @@ export default async function Libro({ searchParams }) {
         <SelectorMes mes={mes} ruta="/libro" />
       </Encabezado>
 
+      <h2 className="seccion">Ingresos: ventas del día</h2>
       <div className="dos">
         <section className="caja">
-          <h2>Ventas del día</h2>
-          <FormVentasDia key={diaElegido} hoy={diaElegido} cuentaEfectivo={cuentas.find(c => c.tipo === 'efectivo')}
-            cuentasBanco={cuentas.filter(c => ['banco', 'billetera'].includes(c.tipo))} porDia={porDia} />
+          <h2>Registrar ventas del día</h2>
+          <FormVentasDia key={diaElegido} hoy={diaElegido} cuentaEfectivo={cuentasEfectivo[0]}
+            cuentasBanco={cuentasBanco} porDia={porDia} />
         </section>
         <section className="caja">
           <h2>Ventas por día <small>toca un día para editarlo</small></h2>
           <div className="tabla-cont tabla-dias"><table>
-            <thead><tr><th>Día</th><th className="n">Efectivo</th><th className="n">Cuentas</th><th className="n">Total</th></tr></thead>
+            <thead><tr><th>Día</th><th className="n">💵 Efectivo</th><th className="n">🏦 Cuentas</th><th className="n">Total</th></tr></thead>
             <tbody>{filas.filter(x => !x.futuro || x.ef || x.bc).map(x => (
               <tr key={x.f} className={x.f === diaElegido ? 'fila-activa' : ''}>
                 <td className="nw"><Link href={`/libro?mes=${mes}&dia=${x.f}`}>{x.sem} {x.dia}</Link></td>
@@ -80,36 +122,61 @@ export default async function Libro({ searchParams }) {
         </section>
       </div>
 
-      <section className="caja">
-        <h2>Registrar egreso <small>o un ingreso distinto a las ventas del día</small></h2>
-        <FormMovimiento hoy={hoy} cuentas={cuentas} bolsillos={bolsillos} categorias={categorias}
-          proveedores={proveedores} gastosFijos={gastosFijos} />
-      </section>
+      <h2 className="seccion">Egresos: gastos y pagos</h2>
+      <div className="dos">
+        <section className="caja">
+          <h2>💵 Pagos en efectivo <small>{cop(egEf.reduce((s, x) => s + x.monto, 0))} este mes</small></h2>
+          <FormEgreso {...comunes} cuentas={cuentasEfectivo} />
+          <TablaEgresos filas={egEf} />
+        </section>
+        <section className="caja">
+          <h2>🏦 Pagos desde cuentas <small>{cop(egBc.reduce((s, x) => s + x.monto, 0))} este mes</small></h2>
+          <FormEgreso {...comunes} cuentas={cuentasBanco} />
+          <TablaEgresos filas={egBc} />
+        </section>
+      </div>
+
+      <h2 className="seccion">Bolsillos</h2>
+      <div className="dos">
+        {[['efectivo', '💵 Efectivo'], ['cuentas', '🏦 Cuentas']].map(([medio, titulo]) => {
+          const r = bol(medio);
+          const t = k => r.reduce((s, x) => s + x[k], 0);
+          return (
+            <section className="caja" key={medio}>
+              <h2>{titulo}</h2>
+              {r.length === 0 ? <Vacio>Sin movimientos.</Vacio> : (
+                <div className="tabla-cont"><table>
+                  <thead><tr><th>Bolsillo</th><th className="n">Venía</th><th className="n">Entró</th><th className="n">Salió</th><th className="n">Queda</th></tr></thead>
+                  <tbody>{r.map(x => (
+                    <tr key={x.codigo}><td><b>{x.codigo}</b> <span className="muted">{x.nombre}</span></td>
+                      <td className="n">{cop(x.anterior)}</td><td className="n pos">{cop(x.entra)}</td><td className="n">{cop(x.sale)}</td>
+                      <td className={`n ${x.saldo < 0 ? 'neg' : ''}`}><b>{cop(x.saldo)}</b></td></tr>))}
+                  </tbody>
+                  <tfoot><tr><td>Total</td><td className="n">{cop(t('anterior'))}</td><td className="n">{cop(t('entra'))}</td>
+                    <td className="n">{cop(t('sale'))}</td><td className={`n ${t('saldo') < 0 ? 'neg' : ''}`}>{cop(t('saldo'))}</td></tr></tfoot>
+                </table></div>)}
+            </section>
+          );
+        })}
+      </div>
 
       <section className="caja">
-        <h2>Movimientos <small>{movs.length} · ingresos {cop(ing)} · egresos {cop(egr)}</small></h2>
-        <div className="filtros">
-          {FILTROS.map(([v, t]) => (
-            <Link key={v} href={`/libro?mes=${mes}${v ? `&tipo=${v}` : ''}`} className={tipo === v ? 'activo' : ''}>{t}</Link>
-          ))}
-        </div>
-        {movs.length === 0 ? <Vacio>No hay movimientos en este mes.</Vacio> : (
-          <div className="tabla-cont"><table>
-            <thead><tr><th>Fecha</th><th>Concepto</th><th>Cuenta</th><th>Bolsillo</th><th>Categoría</th><th>Vinculado a</th><th className="n">Ingreso</th><th className="n">Egreso</th></tr></thead>
-            <tbody>{movs.map(mv => (
-              <tr key={mv.id}>
-                <td>{fecha(mv.fecha)}</td>
-                <td>{mv.concepto}{mv.clase !== 'operacion' && <div className="muted">{mv.clase.replace('_', ' ')}</div>}</td>
-                <td>{mv.cuenta}</td>
-                <td>{mv.bolsillo ?? (mv.tipo === 'ingreso' ? <span className="muted">repartido</span> : '—')}</td>
-                <td>{mv.categoria ?? '—'}</td>
-                <td className="muted">{[mv.tercero, mv.gasto_fijo, mv.pedido].filter(Boolean).join(' · ') || '—'}</td>
-                <td className="n pos">{mv.tipo === 'ingreso' ? cop(mv.monto) : ''}</td>
-                <td className="n">{mv.tipo === 'egreso' ? cop(mv.monto) : ''}</td>
-              </tr>))}
-            </tbody>
-          </table></div>
-        )}
+        <details>
+          <summary>Otros movimientos ({otros.length}): saldos iniciales, otros ingresos, traslados</summary>
+          <div style={{ marginTop: 12 }}>
+            <FormMovimiento hoy={hoy} cuentas={cuentas} bolsillos={bolsillos} categorias={categorias}
+              proveedores={proveedores} gastosFijos={gastosFijos} />
+            {otros.length > 0 && (
+              <div className="tabla-cont" style={{ marginTop: 12 }}><table>
+                <thead><tr><th>Fecha</th><th>Concepto</th><th>Cuenta</th><th>Bolsillo</th><th className="n">Entra</th><th className="n">Sale</th></tr></thead>
+                <tbody>{otros.map(x => (
+                  <tr key={x.id}><td>{fecha(x.fecha)}</td><td>{x.concepto}<div className="muted">{x.clase.replace('_', ' ')}</div></td>
+                    <td>{x.cuenta}</td><td>{x.bolsillo ?? <span className="muted">repartido</span>}</td>
+                    <td className="n pos">{x.tipo === 'ingreso' ? cop(x.monto) : ''}</td><td className="n">{x.tipo === 'egreso' ? cop(x.monto) : ''}</td></tr>))}
+                </tbody>
+              </table></div>)}
+          </div>
+        </details>
       </section>
     </>
   );

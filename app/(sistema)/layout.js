@@ -23,7 +23,7 @@ export default async function Sistema({ children }) {
   const items = MENU.filter(([, , p]) => ctx.puede(p) || (p === 'ventas_registrar' && ctx.puede('ventas_ver_todas')) || (p === 'cartera' && ctx.puede('revision')));
   let pendientes = 0;
   if (ctx.puede('revision')) {
-    pendientes = (await sql(`select count(*) n from ventas where empresa_id = $1 and revision = 'pendiente'`, [ctx.empresa.id]))[0].n;
+    pendientes = (await sql(`select count(*) n from ventas where empresa_id = any($1) and revision = 'pendiente'`, [ctx.empresasCon('revision')]))[0].n;
   }
   return (
     <div className="app">

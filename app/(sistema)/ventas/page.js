@@ -17,33 +17,40 @@ export default async function Ventas({ searchParams }) {
   if (!registra && !verTodas) redirect('/sin-permiso');
   const { empresa, mes, mesInicio } = ctx;
   const e = empresa.id;
+  // Compartido entre empresas: se ven las ventas de todas donde la persona tiene permiso
+  const ids = [...new Set([...ctx.empresasCon('ventas_registrar'), ...ctx.empresasCon('ventas_ver_todas')])];
+  const idsRegistra = ctx.empresasCon('ventas_registrar');
+  const empresasRegistra = ctx.empresas.filter(x => idsRegistra.includes(x.id));
+  const nombreEmpresa = Object.fromEntries(ctx.empresas.map(x => [x.id, x.nombre]));
+  const varias = ids.length > 1;
   const [ventas, entidades, vendedores, clientes] = await Promise.all([
-    sql(`select v.id, v.fecha, v.numero_factura, v.total, v.producto, v.revision, v.nota_revision,
+    sql(`select v.id, v.empresa_id, v.fecha, v.numero_factura, v.total, v.producto, v.revision, v.nota_revision,
            t.nombre cliente, t.documento, em.nombre vendedor, coalesce(mr.nombre, '—') registro,
            (select max(c.etapa) from v_cuentas_por_cobrar c where c.venta_id = v.id) etapa,
            json_agg(json_build_object('forma', vp.forma, 'monto', vp.monto, 'cuenta', c.nombre, 'entidad', ef.nombre, 'referencia', vp.referencia) order by vp.monto desc) pagos
          from ventas v left join terceros t on t.id = v.cliente_id left join empleados em on em.id = v.vendedor_id
-         left join miembros mr on mr.user_id = v.registrado_por and mr.empresa_id = v.empresa_id
+         left join lateral (select nombre from miembros where user_id = v.registrado_por limit 1) mr on true
          join venta_pagos vp on vp.venta_id = v.id left join cuentas c on c.id = vp.cuenta_id
          left join entidades_financiacion ef on ef.id = vp.entidad_id
-         where v.empresa_id = $1 and date_trunc('month', v.fecha) = $2::date and ($3 or v.registrado_por = $4)
+         where v.empresa_id = any($1) and date_trunc('month', v.fecha) = $2::date and ($3 or v.registrado_por = $4)
          group by v.id, t.nombre, t.documento, em.nombre, mr.nombre order by v.fecha desc, v.creado_en desc`,
-      [e, mesInicio, verTodas, ctx.usuario.id]),
-    sql(`select id, nombre from entidades_financiacion where empresa_id = $1 and activa order by nombre`, [e]),
-    verTodas ? sql(`select id, nombre from empleados where empresa_id = $1 and activo order by nombre`, [e]) : [],
+      [ids, mesInicio, verTodas, ctx.usuario.id]),
+    sql(`select distinct nombre from entidades_financiacion where empresa_id = any($1) and activa order by nombre`, [idsRegistra]),
+    verTodas ? sql(`select distinct nombre from empleados where empresa_id = any($1) and activo order by nombre`, [ids]) : [],
     sql(`select id, nombre, documento, telefono from terceros where empresa_id = $1 and es_cliente order by nombre`, [e]),
   ]);
   const total = ventas.reduce((s, v) => s + v.total, 0);
 
   return (
     <>
-      <Encabezado titulo="Ventas por confirmar" sub={`${empresa.nombre} · ${nombreMes(mes)}${verTodas ? '' : ' · tus ventas'}`}>
+      <Encabezado titulo="Ventas por confirmar" sub={`${varias ? 'Las dos empresas' : empresa.nombre} · ${nombreMes(mes)}${verTodas ? '' : ' · tus ventas'}`}>
         <SelectorMes mes={mes} ruta="/ventas" />
       </Encabezado>
       {registra && (
         <section className="caja">
           <h2>Registrar venta con Addi, Sumas Pay, cooperativa o tarjeta de crédito</h2>
-          <FormVenta hoy={hoy()} entidades={entidades} vendedores={vendedores} clientes={clientes}
+          <FormVenta hoy={hoy()} entidades={entidades.map(x => x.nombre)} vendedores={vendedores.map(x => x.nombre)} clientes={clientes}
+            empresas={empresasRegistra} empresaActual={e}
             eligeVendedor={verTodas} revisaSolo={ctx.puede('revision')} />
         </section>
       )}
@@ -51,10 +58,11 @@ export default async function Ventas({ searchParams }) {
         <h2>{verTodas ? 'Ventas registradas' : 'Tus ventas'} <small>{ventas.length} · {cop(total)}</small></h2>
         {ventas.length === 0 ? <Vacio>No hay ventas por confirmar registradas en este mes.</Vacio> : (
           <div className="tabla-cont"><table>
-            <thead><tr><th>Fecha</th><th>Factura</th><th>Producto</th><th>Cliente</th><th>Vendedor</th><th>Forma de pago</th><th className="n">Total</th><th>Estado</th></tr></thead>
+            <thead><tr><th>Fecha</th>{varias && <th>Empresa</th>}<th>Factura</th><th>Producto</th><th>Cliente</th><th>Vendedor</th><th>Forma de pago</th><th className="n">Total</th><th>Estado</th></tr></thead>
             <tbody>{ventas.map(v => (
               <tr key={v.id}>
                 <td className="nw">{fecha(v.fecha)}</td>
+                {varias && <td className="muted nw">{nombreEmpresa[v.empresa_id]?.split(' ')[0]}</td>}
                 <td>{v.numero_factura ?? <span className="muted">—</span>}</td>
                 <td className="prod">{v.producto ?? <span className="muted">—</span>}</td>
                 <td>{v.cliente ?? <span className="muted">Sin cliente</span>}{v.documento && <div className="muted">CC {v.documento}</div>}</td>

@@ -9,16 +9,20 @@ const ESTADOS = { por_pedir: 'Por pedir', pedido: 'Pedido', en_camino: 'En camin
 const FILTROS = [['abiertos', 'Abiertos'], ['todos', 'Todos'], ['entregado', 'Entregados']];
 
 export default async function Pedidos({ searchParams }) {
-  const { empresa, sp } = await requerir(searchParams, 'pedidos');
+  const ctx = await requerir(searchParams, 'pedidos');
+  const { sp } = ctx;
+  const ids = ctx.empresasCon('pedidos');
+  const nombreEmpresa = Object.fromEntries(ctx.empresas.map(x => [x.id, x.nombre]));
+  const varias = ids.length > 1;
   const filtro = FILTROS.some(([v]) => v === sp.ver) ? sp.ver : 'abiertos';
-  const todos = await sql(`select * from v_pedidos where empresa_id = $1 order by numero desc`, [empresa.id]);
+  const todos = await sql(`select * from v_pedidos where empresa_id = any($1) order by numero desc`, [ids]);
   const lista = todos.filter(p => filtro === 'todos' || (filtro === 'entregado' ? p.estado === 'entregado' : !['entregado', 'cancelado'].includes(p.estado)));
   const cuenta = a => todos.filter(p => p.alerta === a).length;
   const porEstado = Object.keys(ESTADOS).map(k => [ESTADOS[k], todos.filter(p => p.estado === k).length]);
 
   return (
     <>
-      <Encabezado titulo="Pedidos bajo encargo" sub={empresa.nombre}>
+      <Encabezado titulo="Pedidos bajo encargo" sub={varias ? 'Compartidos: ' + ids.map(i => nombreEmpresa[i]).join(' y ') : nombreEmpresa[ids[0]]}>
         <Link href="/pedidos/nuevo" className="btn btn-link">+ Nuevo pedido</Link>
       </Encabezado>
       <section className="kpis">
@@ -38,11 +42,12 @@ export default async function Pedidos({ searchParams }) {
         </div>
         {lista.length === 0 ? <Vacio>No hay pedidos en esta vista.</Vacio> : (
           <div className="tabla-cont"><table>
-            <thead><tr><th>N°</th><th>Pedido</th><th>Producto</th><th>Cliente</th><th>Entrega estimada</th><th>Estado</th>
+            <thead><tr><th>N°</th>{varias && <th>Empresa</th>}<th>Pedido</th><th>Producto</th><th>Cliente</th><th>Entrega estimada</th><th>Estado</th>
               <th className="n">Valor</th><th className="n">Abonado</th><th className="n">Saldo</th><th>Alerta</th></tr></thead>
             <tbody>{lista.map(p => (
               <tr key={p.id}>
                 <td className="nw"><Link href={`/pedidos/${p.id}`}><b>{p.numero}</b></Link></td>
+                {varias && <td className="muted nw">{nombreEmpresa[p.empresa_id]?.split(' ')[0]}</td>}
                 <td className="nw">{fecha(p.fecha_pedido)}</td>
                 <td className="prod">{p.producto}{p.observaciones && <div className="muted">{p.observaciones}</div>}</td>
                 <td>{p.cliente ?? '—'}{p.telefono && <div className="muted">{p.telefono}</div>}</td>

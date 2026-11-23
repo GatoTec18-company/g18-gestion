@@ -11,7 +11,8 @@ const TIPO_GASTO = {
 };
 
 export default async function Panel({ searchParams }) {
-  const { empresa, mes, mesInicio } = await requerir(searchParams, 'panel');
+  const ctx = await requerir(searchParams, 'panel');
+  const { empresa, mes, mesInicio } = ctx;
   const e = empresa.id;
   const [r, meta, saldo, bols, gastos, dias, ped, cxc, gf] = await Promise.all([
     uno('select * from v_resumen_mes where empresa_id = $1 and mes = $2', [e, mesInicio]),
@@ -37,16 +38,16 @@ export default async function Panel({ searchParams }) {
          group by d order by d`, [e, mesInicio]),
     uno(`select count(*) filter (where alerta = 'ATRASADO') atrasados, count(*) filter (where alerta = 'FALTA VALOR') sin_valor,
            count(*) filter (where alerta = 'POR PEDIR') por_pedir, coalesce(sum(saldo) filter (where estado <> 'cancelado'), 0) saldo
-         from v_pedidos where empresa_id = $1`, [e]),
+         from v_pedidos where empresa_id = any($1)`, [ctx.empresasCon('panel')]),
     uno(`select coalesce(sum(pendiente), 0) pendiente, count(*) filter (where estado = 'Vencido') vencidas,
            count(*) filter (where estado = 'Por vencer') por_vencer,
            count(*) filter (where estado = 'Pagado: falta aplicar en factura') sin_aplicar
-         from v_cuentas_por_cobrar where empresa_id = $1 and etapa <> 'rechazada'`, [e]),
+         from v_cuentas_por_cobrar where empresa_id = any($1) and etapa <> 'rechazada'`, [ctx.empresasCon('panel')]),
     uno(`select count(*) filter (where estado = 'Vencido') vencidos, coalesce(sum(greatest(diferencia, 0)), 0) por_pagar
          from gastos_fijos_mes($1, $2)`, [e, mesInicio]),
   ]);
 
-  const porRevisar = (await sql(`select count(*) n from ventas where empresa_id = $1 and revision = 'pendiente'`, [e]))[0].n;
+  const porRevisar = (await sql(`select count(*) n from ventas where empresa_id = any($1) and revision = 'pendiente'`, [ctx.empresasCon('revision')]))[0].n;
   const ventas = r?.ventas_caja ?? 0, egresos = r?.egresos ?? 0;
   const pctMeta = meta ? ventas / meta.meta_ventas : null;
   const totalGastos = gastos.reduce((s, g) => s + g.monto, 0);
@@ -83,8 +84,8 @@ export default async function Panel({ searchParams }) {
           <ul className="alertas">
             {porRevisar > 0 && <li>🔎 <span><b>{porRevisar}</b> ventas por confirmar en la plataforma · <Link href="/cartera?etapa=por_confirmar">revisar</Link></span></li>}
             <li>⚠️ <span><b>{pasados} de {bols.length}</b> bolsillos gastaron este mes más de lo que les tocó por ventas</span></li>
-            <li>📦 <span><b>{ped.atrasados}</b> pedidos atrasados · <b>{ped.sin_valor}</b> sin valor · <b>{ped.por_pedir}</b> por pedir · saldo por cobrar <b>{cop(ped.saldo)}</b></span></li>
-            <li>💳 <span>Por cobrar a entidades <b>{cop(cxc.pendiente)}</b> · <b>{cxc.vencidas}</b> vencidas · <b>{cxc.por_vencer}</b> por vencer · <b>{cxc.sin_aplicar}</b> pagadas sin aplicar en factura</span></li>
+            <li>📦 <span>Pedidos (las dos empresas): <b>{ped.atrasados}</b> pedidos atrasados · <b>{ped.sin_valor}</b> sin valor · <b>{ped.por_pedir}</b> por pedir · saldo por cobrar <b>{cop(ped.saldo)}</b></span></li>
+            <li>💳 <span>Por cobrar a entidades (las dos empresas) <b>{cop(cxc.pendiente)}</b> · <b>{cxc.vencidas}</b> vencidas · <b>{cxc.por_vencer}</b> por vencer · <b>{cxc.sin_aplicar}</b> pagadas sin aplicar en factura</span></li>
             <li>⏰ <span><b>{gf.vencidos}</b> gastos fijos vencidos · faltan <b>{cop(gf.por_pagar)}</b> por pagar del mes</span></li>
             <li>📅 <span><b>{diasCon}</b> días con ventas · promedio por día con ventas <b>{cop(diasCon ? ventas / diasCon : 0)}</b></span></li>
           </ul>

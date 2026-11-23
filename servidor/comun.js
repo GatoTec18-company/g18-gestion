@@ -35,3 +35,18 @@ export async function deLaEmpresa(q, tabla, id, empresaId) {
   const r = await q(`select empresa_id from ${tabla} where id = $1`, [id]);
   exigir(r.length && r[0].empresa_id === empresaId, 'Registro no encontrado en esta empresa.');
 }
+
+// Para módulos compartidos (pedidos, ventas): el registro debe ser de alguna empresa
+// donde la persona tiene el permiso. Devuelve la empresa del registro.
+export async function empresaPermitida(q, tabla, id, ctx, permiso) {
+  const r = await q(`select empresa_id from ${tabla} where id = $1`, [id]);
+  exigir(r.length && ctx.empresasCon(permiso).includes(r[0].empresa_id), 'Registro no encontrado.');
+  return r[0].empresa_id;
+}
+
+// Empresa elegida en un formulario de creación (por defecto la activa)
+export function empresaElegida(fd, ctx, permiso) {
+  const id = String(fd.get('empresa_id') || ctx.empresaId);
+  exigir(ctx.empresasCon(permiso).includes(id), 'No puedes registrar en esa empresa.');
+  return id;
+}
