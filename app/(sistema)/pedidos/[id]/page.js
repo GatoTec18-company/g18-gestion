@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import AvisarCliente from '@/components/ui/AvisarCliente';
 import Comprobantes from '@/components/ui/Comprobantes';
 import { notFound } from 'next/navigation';
 import { sql, uno } from '@/lib/db';
@@ -122,6 +123,11 @@ export default async function Pedido({ params, searchParams }) {
       </div>
 
       <section className="caja">
+        <h2>Avisar al cliente por WhatsApp</h2>
+        <AvisarCliente p={p} empresa={ctx.empresas.find(x => x.id === p.empresa_id)?.nombre ?? ''} />
+      </section>
+
+      <section className="caja">
         <h2>Comprobantes <small>recibos de abonos, factura del proveedor, guía de envío</small></h2>
         <Comprobantes destino="pedido" id={id} lista={adjuntos} />
       </section>
@@ -134,10 +140,11 @@ export default async function Pedido({ params, searchParams }) {
             <tbody>{historial.map((m, i) => (
               <tr key={i}><td data-label="📅">{fecha(m.fecha)}</td><td className="t-tit">{m.concepto}</td><td>{m.cuenta ?? '—'}</td><td data-label="Registró">{m.quien ?? '—'}</td>
                 <td className="n pos t-mon">{m.sentido === 'entra' ? `+${cop(m.monto)}` : ''}</td><td className="n t-mon">{m.sentido === 'sale' ? `−${cop(m.monto)}` : ''}</td>
-                <td className="t-acc">{m.abono_id ? (
+                <td className="t-acc">{m.abono_id ? (<div className="fila-botones">
+                  <Link href={`/pedidos/${p.id}/recibo/${m.abono_id}`} className="btn-sec btn-link mini-btn">🧾 Recibo</Link>
                   <FormAccion action={anularAbono} boton="Anular" className="mini" limpiar={false} confirmar="¿Anular este abono?">
                     <input type="hidden" name="abono_id" value={m.abono_id} />
-                  </FormAccion>) : m.mov_id ? <Link href={`/libro/movimiento/${m.mov_id}`} className="muted">corregir</Link> : null}</td></tr>))}
+                  </FormAccion></div>) : m.mov_id ? <Link href={`/libro/movimiento/${m.mov_id}`} className="muted">corregir</Link> : null}</td></tr>))}
             </tbody>
           </table></div>)}
       </section>

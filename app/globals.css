@@ -276,3 +276,26 @@ details > summary { cursor: pointer; color: var(--marca); font-weight: 600; font
   table.tarjetas tr::after { content: ''; order: 1; flex: 0 0 100%; height: 0; }
   table.tarjetas td.t-tit { flex: 1 1 0; }
 }
+
+/* Proyección de caja */
+.lista-proy { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.lista-proy li { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; padding: 7px 4px; border-bottom: 1px solid var(--borde); }
+.lista-proy li a { color: inherit; }
+
+/* WhatsApp y recibo */
+.botones-wa { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn-wa { background: #1f8f4e; }
+.fila-botones { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.mini-btn { padding: 5px 10px; font-size: 13px; }
+.recibo { background: #fff; border: 1px solid var(--borde); border-radius: 14px; padding: 24px; max-width: 520px; }
+.recibo header { display: flex; justify-content: space-between; gap: 16px; border-bottom: 2px solid var(--marca); padding-bottom: 12px; margin-bottom: 14px; }
+.recibo-emp { font-size: 18px; color: var(--marca); }
+.recibo-num { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
+.recibo-num b { font-size: 18px; }
+.recibo dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0 0 14px; }
+.recibo dt { color: var(--suave); }
+.recibo dd { margin: 0; text-align: right; }
+.recibo-monto { display: flex; justify-content: space-between; align-items: baseline; background: var(--marca-claro); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+.recibo-monto b { font-size: 24px; color: var(--marca); }
+.recibo-pie { text-align: center; margin: 8px 0 0; }
+@media print { .recibo { border: 0; max-width: none; } .contenido { padding: 0; } }
