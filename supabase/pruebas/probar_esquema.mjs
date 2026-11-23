@@ -87,7 +87,7 @@ await expectErr(`insert into movimientos (empresa_id, fecha, tipo, cuenta_id, mo
 await expectErr(`delete from movimientos where concepto='Pago torre'`, 'borrar en mes cerrado');
 
 // 8. seguridad por empresa
-await db.exec(`insert into auth.users values ('99999999-0000-0000-0000-000000000001');
+await db.exec(`insert into usuarios (id, email, clave_hash) values ('99999999-0000-0000-0000-000000000001', 'prueba@local', 'x');
   insert into miembros (user_id, empresa_id, nombre, rol) values ('99999999-0000-0000-0000-000000000001', ${G}, 'Colaborador G18', 'colaborador');
   insert into movimientos (empresa_id, fecha, tipo, cuenta_id, monto, concepto) values (${T}, '2026-12-01', 'ingreso', ${id('cuentas','Efectivo',T)}, 999, 'venta gatotec');`);
 await db.exec(`set test.uid = '99999999-0000-0000-0000-000000000001'; set role authenticated;`);
