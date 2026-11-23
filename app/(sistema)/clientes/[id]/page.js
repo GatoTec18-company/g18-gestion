@@ -39,12 +39,12 @@ export default async function Cliente({ params, searchParams }) {
       <section className="caja">
         <h2>Pedidos</h2>
         {pedidos.length === 0 ? <Vacio>Sin pedidos.</Vacio> : (
-          <div className="tabla-cont"><table>
+          <div className="tabla-cont"><table className="tarjetas">
             <thead><tr><th>N°</th><th>Fecha</th><th>Producto</th><th>Estado</th><th className="n">Valor</th><th className="n">Abonado</th><th className="n">Saldo</th></tr></thead>
             <tbody>{pedidos.map(p => (
-              <tr key={p.id}><td><Link href={`/pedidos/${p.id}`}>{p.numero}</Link></td><td>{fecha(p.fecha_pedido)}</td><td>{p.producto ?? '—'}</td>
+              <tr key={p.id}><td><Link href={`/pedidos/${p.id}`}>{p.numero}</Link></td><td data-label="📅">{fecha(p.fecha_pedido)}</td><td className="t-tit">{p.producto ?? '—'}</td>
                 <td><Chip>{ESTADOS[p.estado]}</Chip></td>
-                <td className="n">{cop(p.valor)}</td><td className="n">{cop(p.abonado)}</td><td className="n">{cop(p.saldo)}</td></tr>))}
+                <td className="n t-mon">{cop(p.valor)}</td><td className="n" data-label="Abonó">{cop(p.abonado)}</td><td className="n" data-label="Debe">{cop(p.saldo)}</td></tr>))}
             </tbody>
           </table></div>)}
       </section>
@@ -52,12 +52,12 @@ export default async function Cliente({ params, searchParams }) {
       <section className="caja">
         <h2>Ventas financiadas</h2>
         {ventas.length === 0 ? <Vacio>Sin ventas financiadas.</Vacio> : (
-          <div className="tabla-cont"><table>
+          <div className="tabla-cont"><table className="tarjetas">
             <thead><tr><th>Fecha</th><th>Factura</th><th>Producto</th><th>Entidad</th><th>Etapa</th><th className="n">Valor</th><th className="n">Pendiente</th></tr></thead>
             <tbody>{ventas.map(v => (
-              <tr key={v.venta_pago_id}><td>{fecha(v.fecha_venta)}</td><td>{v.numero_factura ?? '—'}</td><td>{v.producto ?? '—'}</td><td>{v.entidad ?? v.forma}</td>
+              <tr key={v.venta_pago_id}><td data-label="📅">{fecha(v.fecha_venta)}</td><td data-label="Factura">{v.numero_factura ?? '—'}</td><td className="t-tit">{v.producto ?? '—'}</td><td>{v.entidad ?? v.forma}</td>
                 <td><Chip>{ETAPAS[v.etapa] ?? v.etapa}</Chip></td>
-                <td className="n">{cop(v.monto)}</td><td className="n">{cop(v.pendiente)}</td></tr>))}
+                <td className="n t-mon">{cop(v.monto)}</td><td className="n" data-label="Pendiente">{cop(v.pendiente)}</td></tr>))}
             </tbody>
           </table></div>)}
       </section>

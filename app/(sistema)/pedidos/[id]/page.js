@@ -129,12 +129,12 @@ export default async function Pedido({ params, searchParams }) {
       <section className="caja">
         <h2>Historial de este pedido</h2>
         {historial.length === 0 ? <Vacio>{p.abonado_previo > 0 ? `El abono de ${cop(p.abonado_previo)} se registró antes, en la hoja.` : 'Todavía no hay abonos ni pagos.'}</Vacio> : (
-          <div className="tabla-cont"><table>
+          <div className="tabla-cont"><table className="tarjetas">
             <thead><tr><th>Fecha</th><th>Concepto</th><th>Medio / cuenta</th><th>Registró</th><th className="n">Entra</th><th className="n">Sale</th><th /></tr></thead>
             <tbody>{historial.map((m, i) => (
-              <tr key={i}><td>{fecha(m.fecha)}</td><td>{m.concepto}</td><td>{m.cuenta ?? '—'}</td><td>{m.quien ?? '—'}</td>
-                <td className="n pos">{m.sentido === 'entra' ? cop(m.monto) : ''}</td><td className="n">{m.sentido === 'sale' ? cop(m.monto) : ''}</td>
-                <td>{m.abono_id ? (
+              <tr key={i}><td data-label="📅">{fecha(m.fecha)}</td><td className="t-tit">{m.concepto}</td><td>{m.cuenta ?? '—'}</td><td data-label="Registró">{m.quien ?? '—'}</td>
+                <td className="n pos t-mon">{m.sentido === 'entra' ? `+${cop(m.monto)}` : ''}</td><td className="n t-mon">{m.sentido === 'sale' ? `−${cop(m.monto)}` : ''}</td>
+                <td className="t-acc">{m.abono_id ? (
                   <FormAccion action={anularAbono} boton="Anular" className="mini" limpiar={false} confirmar="¿Anular este abono?">
                     <input type="hidden" name="abono_id" value={m.abono_id} />
                   </FormAccion>) : m.mov_id ? <Link href={`/libro/movimiento/${m.mov_id}`} className="muted">corregir</Link> : null}</td></tr>))}

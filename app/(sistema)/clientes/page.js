@@ -34,15 +34,15 @@ export default async function Clientes({ searchParams }) {
           {q && <Link href="/clientes">Quitar búsqueda</Link>}
         </form>
         {lista.length === 0 ? <Vacio>{q ? 'Ningún cliente coincide con la búsqueda.' : 'Todavía no hay clientes. Se crean solos al registrar ventas o pedidos.'}</Vacio> : (
-          <div className="tabla-cont"><table>
+          <div className="tabla-cont"><table className="tarjetas">
             <thead><tr><th>Cliente</th><th>Cédula</th><th>Teléfono</th>{ids.length > 1 && <th>Empresa</th>}<th className="n">Pedidos</th><th className="n">Ventas</th><th className="n">Ha comprado</th><th>Última compra</th></tr></thead>
             <tbody>{lista.map(c => (
               <tr key={c.id}>
-                <td><Link href={`/clientes/${c.id}`}><b>{c.nombre}</b></Link></td>
-                <td>{c.documento ?? '—'}</td><td>{c.telefono ?? '—'}</td>
+                <td className="t-tit"><Link href={`/clientes/${c.id}`}><b>{c.nombre}</b></Link></td>
+                <td data-label="CC">{c.documento ?? '—'}</td><td data-label="Tel.">{c.telefono ?? '—'}</td>
                 {ids.length > 1 && <td className="muted">{nombreEmpresa[c.empresa_id]}</td>}
-                <td className="n">{c.pedidos}</td><td className="n">{c.ventas}</td>
-                <td className="n">{cop(c.comprado)}</td><td>{fecha(c.ultima)}</td>
+                <td className="n" data-label="Pedidos">{c.pedidos}</td><td className="n" data-label="Ventas">{c.ventas}</td>
+                <td className="n t-mon">{cop(c.comprado)}</td><td data-label="Última">{fecha(c.ultima)}</td>
               </tr>))}
             </tbody>
           </table></div>)}

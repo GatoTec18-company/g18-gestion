@@ -58,7 +58,7 @@ export default async function Creditos({ searchParams }) {
       <section className="caja">
         <h2>Créditos</h2>
         {creditos.length === 0 ? <Vacio>Todavía no hay créditos registrados. Agrega abajo el primero (por ejemplo, el del Banco Agrario).</Vacio> : (
-          <div className="tabla-cont"><table>
+          <div className="tabla-cont"><table className="tarjetas">
             <thead><tr><th>Entidad</th><th>Tipo</th><th className="n">Debía</th><th className="n">+ Cargos</th><th className="n">− Pagado</th>
               <th className="n">Saldo</th><th className="n">Cuota</th><th>Paga el</th><th className="n">Pagado este mes</th></tr></thead>
             <tbody>{creditos.map(c => {
@@ -66,14 +66,14 @@ export default async function Creditos({ searchParams }) {
               const venceDia = c.dia_pago ? `${mes}-${String(Math.min(c.dia_pago, 28)).padStart(2, '0')}` : null;
               return (
                 <tr key={c.id} className={c.activo ? '' : 'muted'}>
-                  <td><b>{c.entidad}</b>{c.descripcion && <div className="muted">{c.descripcion}</div>}</td>
-                  <td>{TIPO[c.tipo]}</td>
-                  <td className="n">{cop(c.saldo_inicial)}<div className="muted">{fecha(c.fecha_inicial)}</div></td>
-                  <td className="n">{cop(c.cargos)}</td><td className="n">{cop(c.pagado)}</td>
-                  <td className={`n ${c.saldo > 0 ? 'neg' : ''}`}><b>{cop(c.saldo)}</b></td>
-                  <td className="n">{cop(c.cuota)}</td>
-                  <td>{c.dia_pago ? `día ${c.dia_pago}` : '—'}</td>
-                  <td className="n">{cop(pm)}{c.cuota > 0 && c.activo && (pm >= c.cuota ? <div className="pos">al día</div>
+                  <td className="t-tit"><b>{c.entidad}</b>{c.descripcion && <div className="muted">{c.descripcion}</div>}</td>
+                  <td className="muted">{TIPO[c.tipo]}</td>
+                  <td className="n" data-label="Debía">{cop(c.saldo_inicial)}<div className="muted">{fecha(c.fecha_inicial)}</div></td>
+                  <td className="n" data-label="+ Cargos">{cop(c.cargos)}</td><td className="n" data-label="− Pagado">{cop(c.pagado)}</td>
+                  <td className={`n t-mon ${c.saldo > 0 ? 'neg' : ''}`}><b>{cop(c.saldo)}</b></td>
+                  <td className="n" data-label="Cuota">{cop(c.cuota)}</td>
+                  <td data-label="Paga el">{c.dia_pago ? `día ${c.dia_pago}` : '—'}</td>
+                  <td className="n" data-label="Este mes">{cop(pm)}{c.cuota > 0 && c.activo && (pm >= c.cuota ? <div className="pos">al día</div>
                     : venceDia && venceDia < hoy ? <div className="neg">pendiente</div> : <div className="muted">por pagar</div>)}</td>
                 </tr>);
             })}</tbody>
@@ -111,21 +111,21 @@ export default async function Creditos({ searchParams }) {
         <section className="caja">
           <h2>Últimos pagos a créditos</h2>
           {pagos.length === 0 ? <Vacio>Sin pagos ligados a créditos.</Vacio> : (
-            <div className="tabla-cont"><table>
+            <div className="tabla-cont"><table className="tarjetas">
               <thead><tr><th>Fecha</th><th>Crédito</th><th>Concepto</th><th className="n">Monto</th></tr></thead>
               <tbody>{pagos.map(p => (
-                <tr key={p.id}><td>{fecha(p.fecha)}</td><td>{p.entidad}</td><td><Link href={`/libro/movimiento/${p.id}`} className="link-editar">{p.concepto}</Link></td><td className="n">{cop(p.monto)}</td></tr>))}
+                <tr key={p.id}><td data-label="📅">{fecha(p.fecha)}</td><td className="t-tit">{p.entidad}</td><td className="t-linea"><Link href={`/libro/movimiento/${p.id}`} className="link-editar">{p.concepto}</Link></td><td className="n t-mon">{cop(p.monto)}</td></tr>))}
               </tbody>
             </table></div>)}
         </section>
         <section className="caja">
           <h2>Últimos aumentos de deuda</h2>
           {cargos.length === 0 ? <Vacio>Sin aumentos registrados.</Vacio> : (
-            <div className="tabla-cont"><table>
+            <div className="tabla-cont"><table className="tarjetas">
               <thead><tr><th>Fecha</th><th>Crédito</th><th>Concepto</th><th className="n">Valor</th><th /></tr></thead>
               <tbody>{cargos.map(g => (
-                <tr key={g.id}><td>{fecha(g.fecha)}</td><td>{g.entidad}</td><td>{g.concepto}<div className="muted">{DESTINO[g.destino]}</div></td><td className="n">{cop(g.monto)}</td>
-                  <td><FormAccion action={anularCargo} boton="Anular" className="mini" limpiar={false} confirmar="¿Anular este registro?">
+                <tr key={g.id}><td data-label="📅">{fecha(g.fecha)}</td><td className="t-tit">{g.entidad}</td><td className="t-linea">{g.concepto}<span className="muted"> · {DESTINO[g.destino]}</span></td><td className="n t-mon">{cop(g.monto)}</td>
+                  <td className="t-acc"><FormAccion action={anularCargo} boton="Anular" className="mini" limpiar={false} confirmar="¿Anular este registro?">
                     <input type="hidden" name="cargo_id" value={g.id} /></FormAccion></td></tr>))}
               </tbody>
             </table></div>)}

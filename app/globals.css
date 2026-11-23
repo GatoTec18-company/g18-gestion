@@ -241,3 +241,38 @@ details > summary { cursor: pointer; color: var(--marca); font-weight: 600; font
   .acciones { flex-wrap: nowrap; }
   .acciones .btn-sec { white-space: nowrap; padding: 8px 10px; font-size: 13px; }
 }
+
+/* Tablas que en el celular se ven como tarjetas (en el computador siguen siendo tablas).
+   t-tit: título · t-mon: monto a la derecha · t-linea: renglón completo · t-acc: acciones · t-no: no se muestra en celular.
+   Las demás celdas salen como datos pequeños con su nombre (data-label). */
+@media (max-width: 700px) {
+  .tabla-cont:has(> table.tarjetas) { overflow: visible; max-height: none; }
+  table.tarjetas tfoot td { position: static; background: transparent; }
+  input[type=file] { max-width: 100%; font-size: 13px; }
+  .formulario label:has(> input[type=file]) { grid-column: 1 / -1; }
+  table.tarjetas, table.tarjetas tbody, table.tarjetas tfoot { display: block; width: 100%; }
+  table.tarjetas thead { display: none; }
+  table.tarjetas tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; padding: 10px 12px; margin-bottom: 8px;
+    border: 1px solid var(--borde); border-radius: 10px; background: var(--tarjeta); }
+  table.tarjetas tr.fila-activa { border-color: var(--marca); background: var(--marca-claro); }
+  table.tarjetas td { display: block; border: 0; padding: 0; order: 2; flex: 0 0 auto; text-align: left; font-size: 13px; white-space: normal; min-width: 0; }
+  table.tarjetas td.n { text-align: left; }
+  table.tarjetas td[data-label]::before { content: attr(data-label) " "; color: var(--suave); font-size: 12px; }
+  table.tarjetas td:empty { display: none; }
+  table.tarjetas td.t-tit { order: 0; flex: 1 1 55%; font-size: 15px; font-weight: 600; }
+  table.tarjetas td.t-tit .muted { font-weight: 400; font-size: 12px; }
+  table.tarjetas td.t-mon { order: 1; margin-left: auto; text-align: right; font-size: 15px; font-weight: 700; }
+  table.tarjetas td.t-mon::before { content: none; }
+  table.tarjetas td.t-linea { flex: 0 0 100%; order: 3; }
+  table.tarjetas td.t-acc { flex: 0 0 100%; order: 4; padding-top: 6px; }
+  table.tarjetas td.t-no { display: none; }
+  table.tarjetas tfoot tr { background: var(--marca-claro); border-color: var(--marca-claro); font-weight: 600; }
+  table.tarjetas tfoot td { font-size: 14px; }
+  .tabla-dias table { font-size: 12px; }
+  .tabla-dias td, .tabla-dias th { padding-left: 4px; padding-right: 4px; }
+}
+@media (max-width: 700px) {
+  /* salto de renglón después de título + monto: los datos pequeños siempre van debajo */
+  table.tarjetas tr::after { content: ''; order: 1; flex: 0 0 100%; height: 0; }
+  table.tarjetas td.t-tit { flex: 1 1 0; }
+}

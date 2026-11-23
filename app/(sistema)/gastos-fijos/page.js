@@ -25,18 +25,18 @@ export default async function GastosFijos({ searchParams }) {
       </section>
       <section className="caja">
         {filas.length === 0 ? <Vacio>Esta empresa no tiene gastos fijos configurados.</Vacio> : (
-          <div className="tabla-cont"><table>
+          <div className="tabla-cont"><table className="tarjetas">
             <thead><tr><th>Concepto</th><th>Fecha límite</th><th className="n">Previsto</th><th className="n">Pagado</th><th className="n">Diferencia</th><th>Estado</th></tr></thead>
             <tbody>{filas.map(f => (
               <tr key={f.gasto_fijo_id}>
-                <td><b>{f.concepto}</b></td>
-                <td>{f.fecha_limite ? fecha(f.fecha_limite) : <span className="muted">sin fecha</span>}</td>
-                <td className="n">{cop(f.previsto)}</td><td className="n">{cop(f.pagado)}</td>
-                <td className={`n ${f.diferencia < 0 ? 'pos' : ''}`}>{cop(f.diferencia)}</td>
+                <td className="t-tit"><b>{f.concepto}</b></td>
+                <td data-label="Límite">{f.fecha_limite ? fecha(f.fecha_limite) : <span className="muted">sin fecha</span>}</td>
+                <td className="n t-mon">{cop(f.previsto)}</td><td className="n" data-label="Pagado">{cop(f.pagado)}</td>
+                <td className={`n ${f.diferencia < 0 ? 'pos' : ''}`} data-label="Falta">{cop(f.diferencia)}</td>
                 <td><Chip>{f.estado}</Chip></td>
               </tr>))}
             </tbody>
-            <tfoot><tr><td>Total</td><td /><td className="n">{cop(t('previsto'))}</td><td className="n">{cop(t('pagado'))}</td><td className="n">{cop(t('diferencia'))}</td><td /></tr></tfoot>
+            <tfoot><tr><td className="t-tit">Total</td><td /><td className="n t-mon">{cop(t('previsto'))}</td><td className="n" data-label="Pagado">{cop(t('pagado'))}</td><td className="n" data-label="Falta">{cop(t('diferencia'))}</td><td /></tr></tfoot>
           </table></div>
         )}
         <p className="muted">Para que un pago cuente aquí, en el Libro diario elige el gasto fijo al registrar el egreso.</p>

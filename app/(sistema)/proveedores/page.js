@@ -77,14 +77,14 @@ export default async function Proveedores({ searchParams }) {
         <section className="caja">
           <h2>Estado de cuenta por proveedor</h2>
           {provs.length === 0 ? <Vacio>Sin movimientos con proveedores.</Vacio> : (
-            <div className="tabla-cont"><table>
+            <div className="tabla-cont"><table className="tarjetas">
               <thead><tr><th>Proveedor</th><th className="n">Debe (compras)</th><th className="n">Pagado</th><th className="n">Saldo</th><th className="n">Cupo libre</th></tr></thead>
               <tbody>{provs.map(p => (
                 <tr key={p.proveedor_id}>
-                  <td><b>{p.nombre}</b>{p.cupo_credito > 0 && <div className="muted">cupo {cop(p.cupo_credito)}</div>}</td>
-                  <td className="n">{cop(p.facturado)}</td><td className="n">{cop(p.pagado)}</td>
-                  <td className={`n ${p.saldo > 0 ? 'neg' : ''}`}><b>{cop(p.saldo)}</b>{p.saldo < 0 && <div className="muted">pagado de más o falta registrar facturas</div>}</td>
-                  <td className="n">{p.cupo_credito > 0 ? cop(p.cupo_disponible) : '—'}</td>
+                  <td className="t-tit"><b>{p.nombre}</b>{p.cupo_credito > 0 && <div className="muted">cupo {cop(p.cupo_credito)}</div>}</td>
+                  <td className="n" data-label="Compras">{cop(p.facturado)}</td><td className="n" data-label="Pagado">{cop(p.pagado)}</td>
+                  <td className={`n t-mon ${p.saldo > 0 ? 'neg' : ''}`}><b>{cop(p.saldo)}</b>{p.saldo < 0 && <div className="muted">pagado de más o falta registrar facturas</div>}</td>
+                  <td className="n" data-label="Cupo libre">{p.cupo_credito > 0 ? cop(p.cupo_disponible) : '—'}</td>
                 </tr>))}
               </tbody>
             </table></div>)}
@@ -98,14 +98,14 @@ export default async function Proveedores({ searchParams }) {
           <Link href="/proveedores?ver=todas" className={verTodas ? 'activo' : ''}>Todas ({facturas.length})</Link>
         </div>
         {(verTodas ? facturas : pendientes).length === 0 ? <Vacio>No hay facturas {verTodas ? '' : 'pendientes'}.</Vacio> : (
-          <div className="tabla-cont"><table>
+          <div className="tabla-cont"><table className="tarjetas">
             <thead><tr><th>Fecha</th><th>Proveedor</th><th>Factura</th><th>Para</th><th>Vence</th><th className="n">Valor</th><th className="n">Pendiente</th><th>Estado</th><th /></tr></thead>
             <tbody>{(verTodas ? facturas : pendientes).map(f => (
               <tr key={f.id}>
-                <td className="nw">{fecha(f.fecha)}</td><td><b>{f.proveedor}</b></td><td>{f.numero ?? '—'}{f.observaciones && <div className="muted">{f.observaciones}</div>}</td>
-                <td className="muted">{DESTINO[f.destino]}</td><td className="nw">{fecha(f.fecha_vencimiento)}</td>
-                <td className="n">{cop(f.monto)}</td><td className="n">{cop(f.pendiente)}</td><td><Chip>{estado(f)}</Chip></td>
-                <td><Comprobantes destino="factura" id={f.id} lista={adjuntos.filter(x => x.factura_id === f.id)} compacto />
+                <td className="nw" data-label="📅">{fecha(f.fecha)}</td><td className="t-tit"><b>{f.proveedor}</b></td><td data-label="Factura">{f.numero ?? '—'}{f.observaciones && <div className="muted">{f.observaciones}</div>}</td>
+                <td className="muted">{DESTINO[f.destino]}</td><td className="nw" data-label="Vence">{fecha(f.fecha_vencimiento)}</td>
+                <td className="n t-mon">{cop(f.monto)}</td><td className="n" data-label="Debe">{cop(f.pendiente)}</td><td><Chip>{estado(f)}</Chip></td>
+                <td className="t-acc"><Comprobantes destino="factura" id={f.id} lista={adjuntos.filter(x => x.factura_id === f.id)} compacto />
                   <FormAccion action={anularFactura} boton="Anular" className="mini" limpiar={false} confirmar={`¿Anular la factura de ${f.proveedor} por ${cop(f.monto)}?`}>
                   <input type="hidden" name="factura_id" value={f.id} /></FormAccion></td>
               </tr>))}
@@ -117,20 +117,20 @@ export default async function Proveedores({ searchParams }) {
         <section className="caja">
           <h2>Últimos pagos a proveedores</h2>
           {pagos.length === 0 ? <Vacio>Sin pagos.</Vacio> : (
-            <div className="tabla-cont"><table>
+            <div className="tabla-cont"><table className="tarjetas">
               <thead><tr><th>Fecha</th><th>Proveedor</th><th>Concepto</th><th className="n">Monto</th></tr></thead>
               <tbody>{pagos.map(p => (
-                <tr key={p.id}><td>{fecha(p.fecha)}</td><td>{p.proveedor}</td><td>{p.concepto}<div className="muted">{p.cuenta}</div></td><td className="n">{cop(p.monto)}</td></tr>))}
+                <tr key={p.id}><td data-label="📅">{fecha(p.fecha)}</td><td className="t-tit">{p.proveedor}</td><td className="t-linea">{p.concepto}<span className="muted"> · {p.cuenta}</span></td><td className="n t-mon">{cop(p.monto)}</td></tr>))}
               </tbody>
             </table></div>)}
         </section>
         <section className="caja">
           <h2>Pagos sin proveedor asignado <small>toca uno para asignarle proveedor</small></h2>
           {sinProv.length === 0 ? <Vacio>Todos los pagos tienen proveedor.</Vacio> : (
-            <div className="tabla-cont"><table>
+            <div className="tabla-cont"><table className="tarjetas">
               <thead><tr><th>Fecha</th><th>Concepto</th><th className="n">Monto</th></tr></thead>
               <tbody>{sinProv.map(p => (
-                <tr key={p.id}><td>{fecha(p.fecha)}</td><td><Link href={`/libro/movimiento/${p.id}`} className="link-editar">{p.concepto}</Link></td><td className="n">{cop(p.monto)}</td></tr>))}
+                <tr key={p.id}><td data-label="📅">{fecha(p.fecha)}</td><td className="t-tit"><Link href={`/libro/movimiento/${p.id}`} className="link-editar">{p.concepto}</Link></td><td className="n t-mon">{cop(p.monto)}</td></tr>))}
               </tbody>
             </table></div>)}
         </section>

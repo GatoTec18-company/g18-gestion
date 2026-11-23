@@ -43,22 +43,22 @@ export default async function Pedidos({ searchParams }) {
           {FILTROS.map(([v, t]) => <Link key={v} href={`/pedidos?ver=${v}`} className={filtro === v ? 'activo' : ''}>{t}</Link>)}
         </div>
         {lista.length === 0 ? <Vacio>No hay pedidos en esta vista.</Vacio> : (
-          <div className="tabla-cont"><table>
+          <div className="tabla-cont"><table className="tarjetas">
             <thead><tr><th>N°</th>{varias && <th>Empresa</th>}<th>Pedido</th><th>Producto</th><th>Cliente</th><th>Entrega estimada</th><th>Estado</th>
               <th className="n">Valor</th><th className="n">Abonado</th><th className="n">Saldo</th><th>Alerta</th></tr></thead>
             <tbody>{lista.map(p => (
               <tr key={p.id}>
                 <td className="nw"><Link href={`/pedidos/${p.id}`}><b>{p.numero}</b></Link></td>
                 {varias && <td className="muted nw">{nombreEmpresa[p.empresa_id]?.split(' ')[0]}</td>}
-                <td className="nw">{fecha(p.fecha_pedido)}</td>
-                <td className="prod">{p.producto}{p.observaciones && <div className="muted">{p.observaciones}</div>}</td>
-                <td>{p.cliente ?? '—'}{p.telefono && <div className="muted">{p.telefono}</div>}</td>
-                <td>{fecha(p.fecha_estimada)}{p.dias_para_entrega !== null && (
+                <td className="nw" data-label="Pedido">{fecha(p.fecha_pedido)}</td>
+                <td className="prod t-tit"><Link href={`/pedidos/${p.id}`} className="link-editar">{p.producto}</Link>{p.observaciones && <div className="muted">{p.observaciones}</div>}</td>
+                <td className="t-linea">{p.cliente ?? '—'}{p.telefono && <span className="muted"> · {p.telefono}</span>}</td>
+                <td data-label="Entrega">{fecha(p.fecha_estimada)}{p.dias_para_entrega !== null && (
                   <div className={`muted ${p.dias_para_entrega < 0 ? 'neg' : ''}`}>{p.dias_para_entrega < 0 ? `${-p.dias_para_entrega} días tarde` : `faltan ${p.dias_para_entrega} días`}</div>)}</td>
-                <td>{ESTADOS[p.estado]}</td>
-                <td className="n">{cop(p.valor)}</td>
-                <td className="n">{cop(p.abonado)}</td>
-                <td className={`n ${p.saldo > 0 ? 'neg' : ''}`}>{cop(p.saldo)}</td>
+                <td data-label="Estado">{ESTADOS[p.estado]}</td>
+                <td className="n t-mon">{cop(p.valor)}</td>
+                <td className="n" data-label="Abonó">{cop(p.abonado)}</td>
+                <td className={`n ${p.saldo > 0 ? 'neg' : ''}`} data-label="Debe">{cop(p.saldo)}</td>
                 <td><Chip>{p.alerta}</Chip></td>
               </tr>))}
             </tbody>

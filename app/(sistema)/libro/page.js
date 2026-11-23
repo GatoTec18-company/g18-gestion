@@ -15,19 +15,19 @@ const EFECTIVO = ['efectivo', 'caja_menor'];
 function TablaEgresos({ filas }) {
   if (!filas.length) return <Vacio>Sin egresos este mes.</Vacio>;
   return (
-    <div className="tabla-cont tabla-dias"><table>
+    <div className="tabla-cont tabla-dias"><table className="tarjetas">
       <thead><tr><th>Fecha</th><th>Motivo <span className="muted">(toca para corregir)</span></th><th>Bolsillo</th><th>Categoría</th><th className="n">Monto</th></tr></thead>
       <tbody>{filas.map(m => (
         <tr key={m.id}>
-          <td className="nw">{fecha(m.fecha).slice(0, 5)}</td>
-          <td><Link href={`/libro/movimiento/${m.id}`} className="link-editar" title="Corregir o anular">{m.concepto}</Link>{m.adjuntos > 0 && <Link href={`/libro/movimiento/${m.id}`} className="clip" title="Tiene comprobante">📎{m.adjuntos > 1 ? m.adjuntos : ''}</Link>}{(m.tercero || m.gasto_fijo || m.pedido || m.cuenta_si_varias) &&
+          <td className="nw" data-label="📅">{fecha(m.fecha).slice(0, 5)}</td>
+          <td className="t-tit"><Link href={`/libro/movimiento/${m.id}`} className="link-editar" title="Corregir o anular">{m.concepto}</Link>{m.adjuntos > 0 && <Link href={`/libro/movimiento/${m.id}`} className="clip" title="Tiene comprobante">📎{m.adjuntos > 1 ? m.adjuntos : ''}</Link>}{(m.tercero || m.gasto_fijo || m.pedido || m.cuenta_si_varias) &&
             <div className="muted">{[m.cuenta_si_varias, m.tercero, m.gasto_fijo, m.pedido].filter(Boolean).join(' · ')}</div>}</td>
-          <td>{m.bolsillo}</td>
+          <td data-label="Bolsillo">{m.bolsillo}</td>
           <td className="muted">{m.categoria ?? '—'}</td>
-          <td className="n">{cop(m.monto)}</td>
+          <td className="n t-mon">{cop(m.monto)}</td>
         </tr>))}
       </tbody>
-      <tfoot><tr><td colSpan={4}>Total</td><td className="n">{cop(filas.reduce((s, m) => s + m.monto, 0))}</td></tr></tfoot>
+      <tfoot><tr><td colSpan={4} className="t-tit">Total</td><td className="n t-mon">{cop(filas.reduce((s, m) => s + m.monto, 0))}</td></tr></tfoot>
     </table></div>
   );
 }
@@ -150,15 +150,15 @@ export default async function Libro({ searchParams }) {
             <section className="caja" key={medio}>
               <h2>{titulo}</h2>
               {r.length === 0 ? <Vacio>Sin movimientos.</Vacio> : (
-                <div className="tabla-cont"><table>
+                <div className="tabla-cont"><table className="tarjetas">
                   <thead><tr><th>Bolsillo</th><th className="n">Venía</th><th className="n">Entró</th><th className="n">Salió</th><th className="n">Queda</th></tr></thead>
                   <tbody>{r.map(x => (
-                    <tr key={x.codigo}><td><b>{x.codigo}</b> <span className="muted">{x.nombre}</span></td>
-                      <td className="n">{cop(x.anterior)}</td><td className="n pos">{cop(x.entra)}</td><td className="n">{cop(x.sale)}</td>
-                      <td className={`n ${x.saldo < 0 ? 'neg' : ''}`}><b>{cop(x.saldo)}</b></td></tr>))}
+                    <tr key={x.codigo}><td className="t-tit"><b>{x.codigo}</b> <span className="muted">{x.nombre}</span></td>
+                      <td className="n" data-label="Venía">{cop(x.anterior)}</td><td className="n pos" data-label="Entró">{cop(x.entra)}</td><td className="n" data-label="Salió">{cop(x.sale)}</td>
+                      <td className={`n t-mon ${x.saldo < 0 ? 'neg' : ''}`}><b>{cop(x.saldo)}</b></td></tr>))}
                   </tbody>
-                  <tfoot><tr><td>Total</td><td className="n">{cop(t('anterior'))}</td><td className="n">{cop(t('entra'))}</td>
-                    <td className="n">{cop(t('sale'))}</td><td className={`n ${t('saldo') < 0 ? 'neg' : ''}`}>{cop(t('saldo'))}</td></tr></tfoot>
+                  <tfoot><tr><td className="t-tit">Total</td><td className="n" data-label="Venía">{cop(t('anterior'))}</td><td className="n" data-label="Entró">{cop(t('entra'))}</td>
+                    <td className="n" data-label="Salió">{cop(t('sale'))}</td><td className={`n t-mon ${t('saldo') < 0 ? 'neg' : ''}`}>{cop(t('saldo'))}</td></tr></tfoot>
                 </table></div>)}
             </section>
           );
@@ -172,12 +172,12 @@ export default async function Libro({ searchParams }) {
             <FormMovimiento hoy={hoy} cuentas={cuentas} bolsillos={bolsillos} categorias={categorias}
               proveedores={proveedores} gastosFijos={gastosFijos} />
             {otros.length > 0 && (
-              <div className="tabla-cont" style={{ marginTop: 12 }}><table>
+              <div className="tabla-cont" style={{ marginTop: 12 }}><table className="tarjetas">
                 <thead><tr><th>Fecha</th><th>Concepto</th><th>Cuenta</th><th>Bolsillo</th><th className="n">Entra</th><th className="n">Sale</th></tr></thead>
                 <tbody>{otros.map(x => (
-                  <tr key={x.id}><td>{fecha(x.fecha)}</td><td><Link href={`/libro/movimiento/${x.id}`} className="link-editar">{x.concepto}</Link><div className="muted">{x.clase.replace('_', ' ')}</div></td>
-                    <td>{x.cuenta}</td><td>{x.bolsillo ?? <span className="muted">repartido</span>}</td>
-                    <td className="n pos">{x.tipo === 'ingreso' ? cop(x.monto) : ''}</td><td className="n">{x.tipo === 'egreso' ? cop(x.monto) : ''}</td></tr>))}
+                  <tr key={x.id}><td data-label="📅">{fecha(x.fecha)}</td><td className="t-tit"><Link href={`/libro/movimiento/${x.id}`} className="link-editar">{x.concepto}</Link><div className="muted">{x.clase.replace('_', ' ')}</div></td>
+                    <td>{x.cuenta}</td><td data-label="Bolsillo">{x.bolsillo ?? <span className="muted">repartido</span>}</td>
+                    <td className="n pos t-mon">{x.tipo === 'ingreso' ? `+${cop(x.monto)}` : ''}</td><td className="n t-mon">{x.tipo === 'egreso' ? cop(x.monto) : ''}</td></tr>))}
                 </tbody>
               </table></div>)}
           </div>
