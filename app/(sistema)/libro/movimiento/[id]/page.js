@@ -30,7 +30,7 @@ export default async function EditarMovimiento({ params, searchParams }) {
   ]);
   const volver = `/libro?mes=${String(m.fecha).slice(0, 7)}`;
   const egreso = m.tipo === 'egreso';
-  const bloqueado = m.cerrado || m.venta_pago_id;
+  const bloqueado = m.cerrado || m.venta_pago_id || m.clase === 'prestamo';
 
   return (
     <>
@@ -43,6 +43,7 @@ export default async function EditarMovimiento({ params, searchParams }) {
       </section>
       {bloqueado ? (
         <section className="caja"><p>{m.cerrado ? 'Este movimiento es de un mes ya cerrado: no se puede cambiar. Si es necesario, el administrador debe reabrir el mes en Cierre de mes.'
+          : m.clase === 'prestamo' ? <>Este movimiento es de un préstamo: se corrige o anula desde <Link href="/prestamos">Préstamos</Link>.</>
           : 'Este movimiento viene de una venta: se corrige desde la venta.'}</p></section>
       ) : (
         <div className="dos">

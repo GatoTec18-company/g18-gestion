@@ -15,8 +15,9 @@ export const guardarEmpresa = accion('configuracion', async (ctx, fd) => {
   const meta = monto(fd.get('meta_ventas'));
   const mes = texto(fd.get('mes'));
   await transaccion(async q => {
-    await q('update empresas set nombre = $2, nit = $3, ventas_mueven_caja = $4 where id = $1',
-      [ctx.empresaId, nombre, texto(fd.get('nit')), fd.get('ventas_mueven_caja') === 'on']);
+    await q(`update empresas set nombre = $2, nit = $3, ventas_mueven_caja = $4, telefono = $5, direccion = $6, ciudad = $7, pie_recibo = $8 where id = $1`,
+      [ctx.empresaId, nombre, texto(fd.get('nit')), fd.get('ventas_mueven_caja') === 'on', texto(fd.get('telefono')),
+       texto(fd.get('direccion')), texto(fd.get('ciudad')), texto(fd.get('pie_recibo'))?.slice(0, 200) ?? null]);
     if (mes && /^\d{4}-\d{2}$/.test(mes)) {
       if (meta > 0) await q(`insert into metas_mes (empresa_id, mes, meta_ventas) values ($1, $2, $3)
                              on conflict (empresa_id, mes) do update set meta_ventas = excluded.meta_ventas`, [ctx.empresaId, `${mes}-01`, meta]);

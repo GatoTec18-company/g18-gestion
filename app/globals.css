@@ -33,7 +33,8 @@ td.prod { min-width: 200px; }
 .nav a:hover { background: rgba(255,255,255,.1); opacity: 1; }
 .nav a.activo { background: #fff; color: var(--marca); opacity: 1; font-weight: 600; }
 .pie { margin-top: auto; display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
-.quien { display: flex; flex-direction: column; }
+.quien { display: flex; flex-direction: column; text-decoration: none; color: inherit; border-radius: 8px; padding: 6px 8px; margin: 0 -8px; }
+.quien:hover { background: rgba(255,255,255,.1); }
 .quien span { opacity: .7; font-size: 11px; }
 .btn-salir { font: inherit; font-size: 12px; background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.3); border-radius: 8px; padding: 6px 10px; cursor: pointer; width: 100%; }
 .btn-salir:hover { background: rgba(255,255,255,.1); }

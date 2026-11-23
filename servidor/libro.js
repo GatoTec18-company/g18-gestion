@@ -86,6 +86,7 @@ export const editarMovimiento = accion('libro', async (ctx, fd) => {
     const [m] = await q('select empresa_id, clase, venta_pago_id from movimientos where id = $1', [id]);
     exigir(m && m.empresa_id === ctx.empresaId, 'Movimiento no encontrado.');
     exigir(!m.venta_pago_id, 'Este movimiento viene de una venta: corrígelo desde la venta.');
+    exigir(m.clase !== 'prestamo', 'Este movimiento es de un préstamo: se corrige desde Préstamos.');
     const d = await datosMovimiento(q, ctx, fd);
     await q(`update movimientos set fecha=$2, tipo=$3, cuenta_id=$4, monto=$5, concepto=$6, categoria_id=$7, bolsillo_id=$8,
                tercero_id=$9, gasto_fijo_id=$10, credito_id=$11 where id = $1`,
@@ -99,10 +100,11 @@ export const anularMovimiento = accion('libro', async (ctx, fd) => {
   const id = texto(fd.get('id'));
   let mes;
   await transaccion(async q => {
-    const [m] = await q(`select empresa_id, venta_pago_id, to_char(fecha, 'YYYY-MM') mes from movimientos where id = $1`, [id]);
+    const [m] = await q(`select empresa_id, venta_pago_id, clase, to_char(fecha, 'YYYY-MM') mes from movimientos where id = $1`, [id]);
     mes = m?.mes;
     exigir(m && m.empresa_id === ctx.empresaId, 'Movimiento no encontrado.');
     exigir(!m.venta_pago_id, 'Este movimiento viene de una venta: anúlalo desde la venta.');
+    exigir(m.clase !== 'prestamo', 'Este movimiento es de un préstamo: anúlalo desde Préstamos.');
     await q('update cobros set movimiento_id = null where movimiento_id = $1', [id]);
     await q('update pedido_abonos set movimiento_id = null where movimiento_id = $1', [id]);
     await q('delete from movimientos where id = $1', [id]);

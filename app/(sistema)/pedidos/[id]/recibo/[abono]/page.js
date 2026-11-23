@@ -13,7 +13,7 @@ export default async function Recibo({ params, searchParams }) {
   const ctx = await requerir(searchParams, 'pedidos');
   const { id, abono } = await params;
   if (!uuid(id) || !uuid(abono)) notFound();
-  const p = await uno(`select v.*, p.abonado_previo, e.nombre empresa, e.nit from v_pedidos v join pedidos p on p.id = v.id join empresas e on e.id = v.empresa_id
+  const p = await uno(`select v.*, p.abonado_previo, e.nombre empresa, e.nit, e.telefono tel_empresa, e.direccion, e.ciudad, e.pie_recibo from v_pedidos v join pedidos p on p.id = v.id join empresas e on e.id = v.empresa_id
                        where v.id = $1 and v.empresa_id = any($2)`, [id, ctx.empresasCon('pedidos')]);
   if (!p) notFound();
   const abonos = await sql(`select a.id, a.fecha, a.monto, c.nombre cuenta, c.tipo from pedido_abonos a left join cuentas c on c.id = a.cuenta_id
@@ -28,7 +28,8 @@ export default async function Recibo({ params, searchParams }) {
   const texto = [`*${p.empresa}* — Recibo de abono N° ${numero}`, `Fecha: ${fecha(a.fecha)}`, `Cliente: ${p.cliente ?? '—'}`,
     `Pedido ${p.numero}: ${p.producto ?? ''}`, `Abono recibido: ${cop(a.monto)} (${medio})`,
     p.valor !== null && `Valor del pedido: ${cop(p.valor)}`, `Total abonado: ${cop(acumulado)}`,
-    saldo !== null && (saldo > 0 ? `Saldo pendiente: ${cop(saldo)}` : 'Pedido pagado en su totalidad ✅'), '¡Gracias por su compra!'].filter(Boolean).join('\n');
+    saldo !== null && (saldo > 0 ? `Saldo pendiente: ${cop(saldo)}` : 'Pedido pagado en su totalidad ✅'), p.pie_recibo || '¡Gracias por su compra!',
+    p.tel_empresa && `Tel. ${p.tel_empresa}`].filter(Boolean).join('\n');
 
   return (
     <>
@@ -38,7 +39,9 @@ export default async function Recibo({ params, searchParams }) {
         <Acciones />
       </div>
       <article className="recibo">
-        <header><div><b className="recibo-emp">{p.empresa}</b>{p.nit && <div className="muted">NIT {p.nit}</div>}</div>
+        <header><div><b className="recibo-emp">{p.empresa}</b>{p.nit && <div className="muted">NIT {p.nit}</div>}
+          {(p.direccion || p.ciudad) && <div className="muted">{[p.direccion, p.ciudad].filter(Boolean).join(', ')}</div>}
+          {p.tel_empresa && <div className="muted">Tel. {p.tel_empresa}</div>}</div>
           <div className="recibo-num"><span className="muted">Recibo de abono</span><b>N° {numero}</b><span>{fecha(a.fecha)}</span></div></header>
         <dl>
           <dt>Cliente</dt><dd>{p.cliente ?? '—'}{p.telefono ? ` · ${p.telefono}` : ''}</dd>
@@ -51,7 +54,7 @@ export default async function Recibo({ params, searchParams }) {
           <dt>Total abonado</dt><dd className="n">{cop(acumulado)}</dd>
           {saldo !== null && <><dt>Saldo pendiente</dt><dd className={`n ${saldo > 0 ? 'neg' : 'pos'}`}><b>{saldo > 0 ? cop(saldo) : 'Pagado ✓'}</b></dd></>}
         </dl>
-        <p className="muted recibo-pie">Gracias por su compra.</p>
+        <p className="muted recibo-pie">{p.pie_recibo || 'Gracias por su compra.'}</p>
       </article>
     </>
   );

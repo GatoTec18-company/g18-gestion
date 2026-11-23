@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { alertas } from '@/lib/alertas';
 import { contexto } from '@/lib/sesion';
 import { ROLES } from '@/lib/permisos';
@@ -17,6 +18,7 @@ const MENU = [
   ['/pedidos', 'Pedidos bajo encargo', 'pedidos'],
   ['/clientes', 'Clientes', 'clientes'],
   ['/libro', 'Libro diario', 'libro'],
+  ['/prestamos', 'Préstamos', 'libro'],
   ['/proveedores', 'Proveedores', 'proveedores'],
   ['/creditos', 'Créditos y bancos', 'creditos'],
   ['/gastos-fijos', 'Gastos fijos', 'gastos_fijos'],
@@ -43,7 +45,7 @@ export default async function Sistema({ children }) {
         <SelectorEmpresa empresas={ctx.empresas} actual={ctx.empresa.id} />
         <Navegacion items={items.map(([h, t]) => [h, t, h === '/cartera' && pendientes ? pendientes : h === '/alertas' && avisos.length ? (rojas || avisos.length) : null])} />
         <div className="pie">
-          <div className="quien"><b>{ctx.usuario.nombre}</b><span>{ROLES[ctx.rol]?.t ?? ctx.rol}</span></div>
+          <Link href="/mi-cuenta" className="quien" title="Mi cuenta"><b>{ctx.usuario.nombre}</b><span>{ROLES[ctx.rol]?.t ?? ctx.rol} · Mi cuenta</span></Link>
           <form action={cerrarSesion}><button className="btn-salir">Cerrar sesión</button></form>
         </div>
       </Lateral>

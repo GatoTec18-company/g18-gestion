@@ -9,6 +9,7 @@ const TABLAS = {
   movimientos: 'Libro diario', ventas: 'Venta', venta_pagos: 'Pago de venta', cobros: 'Pago de entidad', pedidos: 'Pedido',
   pedido_items: 'Producto de pedido', pedido_abonos: 'Abono de pedido', facturas_proveedor: 'Factura de proveedor', terceros: 'Cliente / proveedor',
   gastos_fijos: 'Gasto fijo', cuadres_caja: 'Cuadre de caja', creditos: 'Crédito', credito_cargos: 'Cargo a crédito', cierres_mes: 'Cierre de mes',
+  prestamos_empresas: 'Préstamo entre empresas', por_cobrar: 'Nos deben', por_cobrar_pagos: 'Pago de lo que nos deben',
 };
 const ACCION = { INSERT: ['Creó', 'pos'], UPDATE: ['Cambió', ''], DELETE: ['Anuló / borró', 'neg'] };
 const CAMPOS = {

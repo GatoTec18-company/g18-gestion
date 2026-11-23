@@ -10,7 +10,7 @@ export default async function ConfigEmpresa({ searchParams }) {
   const esAdmin = usuario.empresas.every(x => x.rol === 'admin');
   const mes = mesActual();
   const [e, meta] = await Promise.all([
-    uno('select nombre, nit, ventas_mueven_caja from empresas where id = $1', [empresa.id]),
+    uno('select nombre, nit, ventas_mueven_caja, telefono, direccion, ciudad, pie_recibo from empresas where id = $1', [empresa.id]),
     uno('select meta_ventas from metas_mes where empresa_id = $1 and mes = $2', [empresa.id, `${mes}-01`]),
   ]);
   return (
@@ -19,6 +19,10 @@ export default async function ConfigEmpresa({ searchParams }) {
       <FormAccion action={guardarEmpresa} boton="Guardar" limpiar={false}>
         <label>Nombre<input name="nombre" defaultValue={e.nombre} required /></label>
         <label>NIT<input name="nit" defaultValue={e.nit ?? ''} /></label>
+        <label>Teléfono / WhatsApp<input name="telefono" defaultValue={e.telefono ?? ''} inputMode="tel" /></label>
+        <label>Dirección<input name="direccion" defaultValue={e.direccion ?? ''} /></label>
+        <label>Ciudad<input name="ciudad" defaultValue={e.ciudad ?? ''} /></label>
+        <label className="ancho">Mensaje al pie del recibo<input name="pie_recibo" defaultValue={e.pie_recibo ?? ''} maxLength={200} placeholder="Ej. Garantía según condiciones del fabricante. ¡Gracias por su compra!" /></label>
         <input type="hidden" name="mes" value={mes} />
         <label>Meta de ventas de {nombreMes(mes)}<input name="meta_ventas" inputMode="numeric" defaultValue={meta?.meta_ventas ?? ''} placeholder="Ej. 50000000" /></label>
         <label className="casilla ancho" style={{ flexDirection: 'row' }}>

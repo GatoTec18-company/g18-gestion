@@ -85,3 +85,28 @@ export async function cambiarEmpresa(fd) {
   }
   revalidatePath('/', 'layout');
 }
+
+// "Mi cuenta": cada persona cambia su nombre y su contraseña cuando quiera
+export async function cambiarMiNombre(_prev, fd) {
+  const u = await usuarioActual();
+  if (!u) return { ok: false, mensaje: 'Tu sesión terminó. Vuelve a iniciar sesión.' };
+  const nombre = texto(fd.get('nombre'));
+  if (!nombre) return { ok: false, mensaje: 'Escribe tu nombre.' };
+  await sql('update miembros set nombre = $2 where user_id = $1', [u.id, nombre.slice(0, 80)]);
+  revalidatePath('/', 'layout');
+  return { ok: true, mensaje: 'Nombre guardado.' };
+}
+
+export async function cambiarMiClave(_prev, fd) {
+  const u = await usuarioActual();
+  if (!u) return { ok: false, mensaje: 'Tu sesión terminó. Vuelve a iniciar sesión.' };
+  const actual = String(fd.get('actual') ?? '');
+  const nueva = String(fd.get('nueva') ?? '');
+  const fila = await uno('select clave_hash from usuarios where id = $1', [u.id]);
+  if (!(await claveCorrecta(actual, fila?.clave_hash))) return { ok: false, mensaje: 'La contraseña actual no es correcta.' };
+  const err = [validarClave(nueva), nueva !== fd.get('nueva2') && 'Las contraseñas nuevas no coinciden.',
+    nueva === actual && 'La nueva contraseña debe ser distinta.'].filter(Boolean);
+  if (err.length) return { ok: false, mensaje: err.join(' ') };
+  await sql('update usuarios set clave_hash = $2, debe_cambiar_clave = false where id = $1', [u.id, await cifrarClave(nueva)]);
+  return { ok: true, mensaje: 'Contraseña cambiada. La próxima vez entra con la nueva.' };
+}
