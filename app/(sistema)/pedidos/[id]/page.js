@@ -6,7 +6,7 @@ import { hoy } from '@/lib/fechas';
 import { cop, fecha } from '@/lib/formato';
 import { Chip, Encabezado, Vacio } from '@/components/ui/Comunes';
 import FormAccion from '@/components/formularios/FormAccion';
-import { abonarPedido, actualizarPedido, guardarItem, pagarProveedorPedido } from '@/servidor/pedidos';
+import { abonarPedido, actualizarPedido, anularAbono, guardarItem, pagarProveedorPedido } from '@/servidor/pedidos';
 
 const ESTADOS = [['por_pedir', 'Por pedir'], ['pedido', 'Pedido'], ['en_camino', 'En camino'], ['recibido_en_tienda', 'Recibido en tienda'], ['entregado', 'Entregado'], ['cancelado', 'Cancelado']];
 
@@ -20,11 +20,11 @@ export default async function Pedido({ params, searchParams }) {
   if (!p) notFound();
   const [items, historial, proveedores, proveedoresActiva, cuentas, bolsillos] = await Promise.all([
     sql('select id, descripcion, cantidad, precio_venta from pedido_items where pedido_id = $1 order by descripcion', [id]),
-    sql(`select a.fecha, 'Abono del cliente' concepto, a.monto, 'entra' sentido, c.nombre cuenta, m.nombre quien, a.creado_en
+    sql(`select a.fecha, 'Abono del cliente' concepto, a.monto, 'entra' sentido, c.nombre cuenta, m.nombre quien, a.creado_en, a.id abono_id, null::uuid mov_id
          from pedido_abonos a left join cuentas c on c.id = a.cuenta_id left join lateral (select nombre from miembros where user_id = a.registrado_por limit 1) m on true
          where a.pedido_id = $1
          union all
-         select mv.fecha, mv.concepto, mv.monto, 'sale', c.nombre, m.nombre, mv.creado_en from movimientos mv
+         select mv.fecha, mv.concepto, mv.monto, 'sale', c.nombre, m.nombre, mv.creado_en, null, mv.id from movimientos mv
          join cuentas c on c.id = mv.cuenta_id left join lateral (select nombre from miembros where user_id = mv.creado_por limit 1) m on true
          where mv.pedido_id = $1 and mv.tipo = 'egreso' and $2
          order by 1, 7`, [id, verCostos]),
@@ -123,10 +123,14 @@ export default async function Pedido({ params, searchParams }) {
         <h2>Historial de este pedido</h2>
         {historial.length === 0 ? <Vacio>{p.abonado_previo > 0 ? `El abono de ${cop(p.abonado_previo)} se registró antes, en la hoja.` : 'Todavía no hay abonos ni pagos.'}</Vacio> : (
           <div className="tabla-cont"><table>
-            <thead><tr><th>Fecha</th><th>Concepto</th><th>Medio / cuenta</th><th>Registró</th><th className="n">Entra</th><th className="n">Sale</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Concepto</th><th>Medio / cuenta</th><th>Registró</th><th className="n">Entra</th><th className="n">Sale</th><th /></tr></thead>
             <tbody>{historial.map((m, i) => (
               <tr key={i}><td>{fecha(m.fecha)}</td><td>{m.concepto}</td><td>{m.cuenta ?? '—'}</td><td>{m.quien ?? '—'}</td>
-                <td className="n pos">{m.sentido === 'entra' ? cop(m.monto) : ''}</td><td className="n">{m.sentido === 'sale' ? cop(m.monto) : ''}</td></tr>))}
+                <td className="n pos">{m.sentido === 'entra' ? cop(m.monto) : ''}</td><td className="n">{m.sentido === 'sale' ? cop(m.monto) : ''}</td>
+                <td>{m.abono_id ? (
+                  <FormAccion action={anularAbono} boton="Anular" className="mini" limpiar={false} confirmar="¿Anular este abono?">
+                    <input type="hidden" name="abono_id" value={m.abono_id} />
+                  </FormAccion>) : m.mov_id ? <Link href={`/libro/movimiento/${m.mov_id}`} className="muted">corregir</Link> : null}</td></tr>))}
             </tbody>
           </table></div>)}
       </section>

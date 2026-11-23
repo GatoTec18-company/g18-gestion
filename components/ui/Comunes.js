@@ -25,7 +25,7 @@ const TONOS = {
   'ATRASADO': 'rojo', 'Vencido': 'rojo', 'FALTA VALOR': 'ambar', 'POR PEDIR': 'ambar', 'Parcial': 'ambar',
   'Por vencer': 'ambar', 'ENTREGA PRÓXIMA': 'ambar', 'Pagado: falta aplicar en factura': 'azul',
   'Por confirmar': 'ambar', 'Pendiente': 'gris', 'CANCELADO': 'gris',
-  'Por revisar': 'ambar', 'Sin fecha de pago': 'gris', 'Aprobada': 'verde', 'Rechazada': 'rojo',
+  'Por revisar': 'ambar', 'Sin fecha de pago': 'gris', 'Pagada': 'verde', 'Vencida': 'rojo', 'Aprobada': 'verde', 'Rechazada': 'rojo',
 };
 export function Chip({ children }) {
   return <span className={`chip ${TONOS[children] ?? 'gris'}`}>{children}</span>;

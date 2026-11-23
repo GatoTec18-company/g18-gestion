@@ -1,41 +1,110 @@
+import Link from 'next/link';
 import { sql } from '@/lib/db';
 import { requerir } from '@/lib/sesion';
 import { hoy as hoyCol } from '@/lib/fechas';
 import { cop, fecha } from '@/lib/formato';
-import { Encabezado, Vacio } from '@/components/ui/Comunes';
+import { Chip, Encabezado, Vacio } from '@/components/ui/Comunes';
+import FormAccion from '@/components/formularios/FormAccion';
+import { anularFactura, crearFactura } from '@/servidor/proveedores';
+
+const DESTINO = { mercancia: 'Mercancía para vender', pedido_cliente: 'Pedido de cliente', activos: 'Equipos / activos', saldo_inicial: 'Saldo que se debía', otro: 'Otro' };
 
 export default async function Proveedores({ searchParams }) {
-  const { empresa } = await requerir(searchParams, 'proveedores');
+  const { empresa, sp } = await requerir(searchParams, 'proveedores');
   const e = empresa.id;
-  const [provs, pagos, sinProv] = await Promise.all([
-    sql(`select * from v_estado_proveedores where empresa_id = $1 order by pagado desc, nombre`, [e]),
-    sql(`select m.fecha, m.concepto, m.monto, t.nombre proveedor, c.nombre cuenta from movimientos m
+  const hoy = hoyCol();
+  const [provs, facturas, pagos, sinProv, lista] = await Promise.all([
+    sql(`select * from v_estado_proveedores where empresa_id = $1 and (facturado > 0 or pagado > 0 or cupo_credito > 0) order by saldo desc, nombre`, [e]),
+    // Facturas con lo pendiente de cada una: los pagos se aplican a las más antiguas primero
+    sql(`with f as (
+           select f.*, sum(f.monto) over (partition by f.proveedor_id order by f.fecha, f.creado_en) acumulado
+           from facturas_proveedor f where f.empresa_id = $1),
+         p as (select tercero_id, sum(monto) pagado from movimientos where empresa_id = $1 and tipo = 'egreso' and tercero_id is not null group by 1)
+         select f.id, f.numero, f.fecha, f.fecha_vencimiento, f.monto, f.destino, f.observaciones, t.nombre proveedor,
+                greatest(0, least(f.monto, f.acumulado - coalesce(p.pagado, 0))) pendiente
+         from f join terceros t on t.id = f.proveedor_id left join p on p.tercero_id = f.proveedor_id
+         order by f.fecha desc, f.creado_en desc`, [e]),
+    sql(`select m.id, m.fecha, m.concepto, m.monto, t.nombre proveedor, c.nombre cuenta from movimientos m
          join terceros t on t.id = m.tercero_id join cuentas c on c.id = m.cuenta_id
          where m.empresa_id = $1 and m.tipo = 'egreso' and t.es_proveedor order by m.fecha desc limit 30`, [e]),
-    sql(`select m.fecha, m.concepto, m.monto from movimientos m join categorias_gasto cg on cg.id = m.categoria_id
+    sql(`select m.id, m.fecha, m.concepto, m.monto from movimientos m join categorias_gasto cg on cg.id = m.categoria_id
          where m.empresa_id = $1 and m.tipo = 'egreso' and m.tercero_id is null and cg.tipo = 'proveedores'
          order by m.fecha desc`, [e]),
+    sql(`select id, nombre from terceros where empresa_id = $1 and es_proveedor order by nombre`, [e]),
   ]);
+  const estado = f => f.pendiente <= 0 ? 'Pagada' : f.fecha_vencimiento && f.fecha_vencimiento < hoy ? 'Vencida'
+    : f.pendiente < f.monto ? 'Parcial' : 'Pendiente';
+  const pendientes = facturas.filter(f => f.pendiente > 0);
+  const deuda = provs.reduce((s, p) => s + Math.max(0, p.saldo), 0);
+  const vencido = pendientes.filter(f => estado(f) === 'Vencida').reduce((s, f) => s + f.pendiente, 0);
+  const verTodas = sp.ver === 'todas';
 
   return (
     <>
-      <Encabezado titulo="Proveedores" sub={`${empresa.nombre} · estado de cuenta y cupo`} />
+      <Encabezado titulo="Proveedores" sub={`${empresa.nombre} · lo que se debe, lo que se paga y el cupo`} />
+
+      <section className="kpis">
+        <div className="kpi"><div className="et">Deuda con proveedores</div><div className={`va ${deuda > 0 ? 'neg' : ''}`}>{cop(deuda)}</div>
+          <div className="de">{pendientes.length} facturas pendientes</div></div>
+        <div className="kpi"><div className="et">Vencido</div><div className={`va ${vencido > 0 ? 'neg' : ''}`}>{cop(vencido)}</div></div>
+        <div className="kpi"><div className="et">Pagos sin proveedor</div><div className="va">{sinProv.length}</div>
+          <div className="de">Asígnales proveedor para que descuenten la deuda</div></div>
+      </section>
+
+      <div className="dos">
+        <section className="caja">
+          <h2>Registrar compra a crédito</h2>
+          <FormAccion action={crearFactura} boton="Registrar factura">
+            <label>Proveedor<select name="proveedor_id" required defaultValue="">
+              <option value="" disabled>Elegir…</option>{lista.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></label>
+            <label>N° de factura<input name="numero" /></label>
+            <label>Fecha<input type="date" name="fecha" defaultValue={hoy} required /></label>
+            <label>Vence<input type="date" name="fecha_vencimiento" /></label>
+            <label>Valor<input name="monto" inputMode="numeric" required placeholder="0" /></label>
+            <label>¿Para qué fue?<select name="destino" defaultValue="mercancia">
+              {Object.entries(DESTINO).map(([k, t]) => <option key={k} value={k}>{t}</option>)}</select></label>
+            <label className="ancho">Observaciones<input name="observaciones" /></label>
+          </FormAccion>
+          <p className="muted">Los <b>pagos y abonos</b> se registran en el Libro diario como egreso, eligiendo el proveedor: se descuentan solos de lo que se debe, empezando por las facturas más antiguas.
+            Para empezar, registra a cada proveedor lo que se le debía con “Saldo que se debía”.</p>
+        </section>
+
+        <section className="caja">
+          <h2>Estado de cuenta por proveedor</h2>
+          {provs.length === 0 ? <Vacio>Sin movimientos con proveedores.</Vacio> : (
+            <div className="tabla-cont"><table>
+              <thead><tr><th>Proveedor</th><th className="n">Debe (compras)</th><th className="n">Pagado</th><th className="n">Saldo</th><th className="n">Cupo libre</th></tr></thead>
+              <tbody>{provs.map(p => (
+                <tr key={p.proveedor_id}>
+                  <td><b>{p.nombre}</b>{p.cupo_credito > 0 && <div className="muted">cupo {cop(p.cupo_credito)}</div>}</td>
+                  <td className="n">{cop(p.facturado)}</td><td className="n">{cop(p.pagado)}</td>
+                  <td className={`n ${p.saldo > 0 ? 'neg' : ''}`}><b>{cop(p.saldo)}</b>{p.saldo < 0 && <div className="muted">pagado de más o falta registrar facturas</div>}</td>
+                  <td className="n">{p.cupo_credito > 0 ? cop(p.cupo_disponible) : '—'}</td>
+                </tr>))}
+              </tbody>
+            </table></div>)}
+        </section>
+      </div>
+
       <section className="caja">
-        <h2>Estado de cuenta</h2>
-        <div className="tabla-cont"><table>
-          <thead><tr><th>Proveedor</th><th className="n">Cupo de crédito</th><th className="n">Facturado</th><th className="n">Pagado</th>
-            <th className="n">Saldo</th><th className="n">Cupo disponible</th></tr></thead>
-          <tbody>{provs.map(p => (
-            <tr key={p.proveedor_id}>
-              <td><b>{p.nombre}</b></td>
-              <td className="n">{p.cupo_credito === null ? <span className="muted">sin dato</span> : cop(p.cupo_credito)}</td>
-              <td className="n">{cop(p.facturado)}</td><td className="n">{cop(p.pagado)}</td>
-              <td className={`n ${p.saldo > 0 ? 'neg' : ''}`}>{cop(p.saldo)}</td>
-              <td className="n">{p.cupo_disponible === null ? '—' : cop(p.cupo_disponible)}</td>
-            </tr>))}
-          </tbody>
-        </table></div>
-        <p className="muted">Todavía no hay facturas de proveedores cargadas: por eso el saldo sale negativo (pagado de más). Al registrar las facturas a crédito, el saldo y el cupo quedan reales.</p>
+        <h2>Facturas de proveedores <small>{verTodas ? 'todas' : 'pendientes'}</small></h2>
+        <div className="filtros">
+          <Link href="/proveedores" className={!verTodas ? 'activo' : ''}>Pendientes ({pendientes.length})</Link>
+          <Link href="/proveedores?ver=todas" className={verTodas ? 'activo' : ''}>Todas ({facturas.length})</Link>
+        </div>
+        {(verTodas ? facturas : pendientes).length === 0 ? <Vacio>No hay facturas {verTodas ? '' : 'pendientes'}.</Vacio> : (
+          <div className="tabla-cont"><table>
+            <thead><tr><th>Fecha</th><th>Proveedor</th><th>Factura</th><th>Para</th><th>Vence</th><th className="n">Valor</th><th className="n">Pendiente</th><th>Estado</th><th /></tr></thead>
+            <tbody>{(verTodas ? facturas : pendientes).map(f => (
+              <tr key={f.id}>
+                <td className="nw">{fecha(f.fecha)}</td><td><b>{f.proveedor}</b></td><td>{f.numero ?? '—'}{f.observaciones && <div className="muted">{f.observaciones}</div>}</td>
+                <td className="muted">{DESTINO[f.destino]}</td><td className="nw">{fecha(f.fecha_vencimiento)}</td>
+                <td className="n">{cop(f.monto)}</td><td className="n">{cop(f.pendiente)}</td><td><Chip>{estado(f)}</Chip></td>
+                <td><FormAccion action={anularFactura} boton="Anular" className="mini" limpiar={false} confirmar={`¿Anular la factura de ${f.proveedor} por ${cop(f.monto)}?`}>
+                  <input type="hidden" name="factura_id" value={f.id} /></FormAccion></td>
+              </tr>))}
+            </tbody>
+          </table></div>)}
       </section>
 
       <div className="grilla">
@@ -44,18 +113,18 @@ export default async function Proveedores({ searchParams }) {
           {pagos.length === 0 ? <Vacio>Sin pagos.</Vacio> : (
             <div className="tabla-cont"><table>
               <thead><tr><th>Fecha</th><th>Proveedor</th><th>Concepto</th><th className="n">Monto</th></tr></thead>
-              <tbody>{pagos.map((p, i) => (
-                <tr key={i}><td>{fecha(p.fecha)}</td><td>{p.proveedor}</td><td>{p.concepto}<div className="muted">{p.cuenta}</div></td><td className="n">{cop(p.monto)}</td></tr>))}
+              <tbody>{pagos.map(p => (
+                <tr key={p.id}><td>{fecha(p.fecha)}</td><td>{p.proveedor}</td><td>{p.concepto}<div className="muted">{p.cuenta}</div></td><td className="n">{cop(p.monto)}</td></tr>))}
               </tbody>
             </table></div>)}
         </section>
         <section className="caja">
-          <h2>Pagos sin proveedor asignado <small>{sinProv.length}</small></h2>
+          <h2>Pagos sin proveedor asignado <small>toca uno para asignarle proveedor</small></h2>
           {sinProv.length === 0 ? <Vacio>Todos los pagos tienen proveedor.</Vacio> : (
             <div className="tabla-cont"><table>
               <thead><tr><th>Fecha</th><th>Concepto</th><th className="n">Monto</th></tr></thead>
-              <tbody>{sinProv.map((p, i) => (
-                <tr key={i}><td>{fecha(p.fecha)}</td><td>{p.concepto}</td><td className="n">{cop(p.monto)}</td></tr>))}
+              <tbody>{sinProv.map(p => (
+                <tr key={p.id}><td>{fecha(p.fecha)}</td><td><Link href={`/libro/movimiento/${p.id}`} className="link-editar">{p.concepto}</Link></td><td className="n">{cop(p.monto)}</td></tr>))}
               </tbody>
             </table></div>)}
         </section>

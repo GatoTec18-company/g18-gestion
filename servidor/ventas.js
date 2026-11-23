@@ -114,3 +114,40 @@ export const revisarVenta = accion('revision', async (ctx, fd) => {
   }, ctx.usuario.id);
   return { ok: true, mensaje: decision === 'aprobada' ? 'Confirmada en la plataforma: ahora espera el pago.' : 'Venta rechazada.' };
 });
+
+// Corregir datos de una venta financiada. Quien la confirma puede siempre;
+// quien la registró, solo mientras está por confirmar.
+export const editarVenta = accion('ventas_registrar', async (ctx, fd) => {
+  const id = texto(fd.get('venta_id'));
+  const total = monto(fd.get('total'));
+  exigir(total > 0, 'El valor debe ser mayor que cero.');
+  exigir(fechaValida(fd.get('fecha')), 'Falta la fecha.');
+  exigir(texto(fd.get('producto')), 'Escribe el producto.');
+  await transaccion(async q => {
+    const [v] = await q(`select v.empresa_id, v.registrado_por, v.revision, vp.id vp_id, vp.forma,
+                           vp.recibido_previo + coalesce((select sum(monto) from cobros where venta_pago_id = vp.id), 0) recibido
+                         from ventas v join venta_pagos vp on vp.venta_id = v.id where v.id = $1 limit 1`, [id]);
+    exigir(v && [...ctx.empresasCon('ventas_registrar'), ...ctx.empresasCon('revision')].includes(v.empresa_id), 'Venta no encontrada.');
+    exigir(ctx.empresasCon('revision').includes(v.empresa_id) || (v.registrado_por === ctx.usuario.id && v.revision === 'pendiente'),
+      'Solo puedes corregir tus ventas mientras están por confirmar.');
+    exigir(total + 0.5 >= Number(v.recibido), `Ya se recibieron ${Number(v.recibido).toLocaleString('es-CO')}: el valor no puede ser menor.`);
+    await q(`update ventas set fecha = $2, numero_factura = $3, producto = $4, total = $5 where id = $1`,
+      [id, fd.get('fecha'), texto(fd.get('numero_factura')), texto(fd.get('producto')), total]);
+    await q(`update venta_pagos set monto = $2, referencia = $3, detalle = $4, fecha_estimada_pago = null where id = $1`,
+      [v.vp_id, total, texto(fd.get('referencia')), texto(fd.get('detalle'))]);
+  }, ctx.usuario.id);
+  return { ok: true, mensaje: 'Venta corregida.' };
+});
+
+// Anular un pago registrado por error (vuelve a quedar pendiente)
+export const anularCobro = accion('cartera', async (ctx, fd) => {
+  const id = texto(fd.get('cobro_id'));
+  await transaccion(async q => {
+    const [c] = await q(`select v.empresa_id, c.movimiento_id from cobros c join venta_pagos vp on vp.id = c.venta_pago_id
+                         join ventas v on v.id = vp.venta_id where c.id = $1`, [id]);
+    exigir(c && ctx.empresasCon('cartera').includes(c.empresa_id), 'Pago no encontrado.');
+    await q('delete from cobros where id = $1', [id]);
+    if (c.movimiento_id) await q('delete from movimientos where id = $1', [c.movimiento_id]);
+  }, ctx.usuario.id);
+  return { ok: true, mensaje: 'Pago anulado: la venta vuelve a quedar pendiente por ese valor.' };
+});

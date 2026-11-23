@@ -5,7 +5,7 @@ import useEnvio from './useEnvio';
 
 // Egreso de un medio fijo, como en la hoja: "pagos en efectivo" o "pagos desde cuentas".
 // Si el medio tiene varias cuentas (Bancos, Nequi, Daviplata) se elige cuál.
-export default function FormEgreso({ hoy, cuentas, bolsillos, categorias, proveedores, gastosFijos }) {
+export default function FormEgreso({ hoy, cuentas, bolsillos, categorias, proveedores, gastosFijos, creditos = [] }) {
   const { estado, enviando, onSubmit } = useEnvio(crearMovimiento);
   const ref = useRef(null);
   useEffect(() => { if (estado?.ok) ref.current?.reset(); }, [estado]);
@@ -26,7 +26,7 @@ export default function FormEgreso({ hoy, cuentas, bolsillos, categorias, provee
         <label>Categoría<select name="categoria_id" defaultValue="" required>
           <option value="" disabled>Elegir…</option>
           {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></label>
-        <details className="ancho mas-datos"><summary>Proveedor o gasto fijo (opcional)</summary>
+        <details className="ancho mas-datos"><summary>Proveedor, gasto fijo o crédito (opcional)</summary>
           <div className="formulario">
             <label>Proveedor<select name="tercero_id" defaultValue="">
               <option value="">—</option>
@@ -34,6 +34,9 @@ export default function FormEgreso({ hoy, cuentas, bolsillos, categorias, provee
             <label>Gasto fijo<select name="gasto_fijo_id" defaultValue="">
               <option value="">—</option>
               {gastosFijos.map(g => <option key={g.id} value={g.id}>{g.concepto}</option>)}</select></label>
+            {creditos.length > 0 && <label>Pago de crédito / banco<select name="credito_id" defaultValue="">
+              <option value="">—</option>
+              {creditos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></label>}
           </div>
         </details>
         <div><button className="btn" disabled={enviando}>{enviando ? 'Guardando…' : 'Registrar egreso'}</button></div>

@@ -14,7 +14,9 @@ const MENU = [
   ['/pedidos', 'Pedidos bajo encargo', 'pedidos'],
   ['/libro', 'Libro diario', 'libro'],
   ['/proveedores', 'Proveedores', 'proveedores'],
+  ['/creditos', 'Créditos y bancos', 'creditos'],
   ['/gastos-fijos', 'Gastos fijos', 'gastos_fijos'],
+  ['/cierre', 'Cierre de mes', 'cierre'],
   ['/configuracion', 'Configuración', 'configuracion'],
 ];
 

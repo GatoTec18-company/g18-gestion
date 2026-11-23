@@ -1,7 +1,9 @@
 'use server';
+import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
 import { transaccion } from '@/lib/db';
 import { fechaValida, monto, texto } from '@/lib/entrada';
-import { accion, exigir } from './comun';
+import { accion, deLaEmpresa, exigir } from './comun';
 
 // Ventas del día (como la fila del día en la hoja: una casilla de efectivo y una de cuentas).
 // Guardar de nuevo el mismo día REEMPLAZA el valor; dejarlo en 0 lo borra. Se reparte en los bolsillos.
@@ -37,22 +39,72 @@ export const guardarVentasDia = accion('libro', async (ctx, fd) => {
   return { ok: true, mensaje: cambios ? 'Ventas del día guardadas y repartidas en los bolsillos.' : 'No había cambios.', t: Date.now() };
 });
 
-export const crearMovimiento = accion('libro', async (ctx, fd) => {
+// Datos de un egreso/ingreso tomados del formulario, validados contra la empresa activa
+async function datosMovimiento(q, ctx, fd) {
   const tipo = fd.get('tipo') === 'ingreso' ? 'ingreso' : 'egreso';
   const valor = monto(fd.get('monto'));
   exigir(fechaValida(fd.get('fecha')), 'Falta la fecha.');
   exigir(texto(fd.get('cuenta_id')), 'Elige la cuenta.');
   exigir(valor > 0, 'El monto debe ser mayor que cero.');
-  exigir(texto(fd.get('concepto')), 'Escribe el concepto.');
+  exigir(texto(fd.get('concepto')), 'Escribe el motivo.');
   if (tipo === 'egreso') {
     exigir(texto(fd.get('bolsillo_id')), 'Un egreso necesita bolsillo.');
     exigir(texto(fd.get('categoria_id')), 'Un egreso necesita categoría.');
   }
-  await transaccion(q => q(`
-    insert into movimientos (empresa_id, fecha, tipo, cuenta_id, monto, concepto, categoria_id, bolsillo_id, tercero_id, gasto_fijo_id)
-    select $1,$2,$3,c.id,$5,$6,$7,$8,$9,$10 from cuentas c where c.id = $4 and c.empresa_id = $1`,
-  [ctx.empresaId, fd.get('fecha'), tipo, fd.get('cuenta_id'), valor, texto(fd.get('concepto')),
-   tipo === 'egreso' ? texto(fd.get('categoria_id')) : null, texto(fd.get('bolsillo_id')), texto(fd.get('tercero_id')),
-   tipo === 'egreso' ? texto(fd.get('gasto_fijo_id')) : null]), ctx.usuario.id);
-  return { ok: true, mensaje: `${tipo === 'ingreso' ? 'Ingreso' : 'Egreso'} guardado.`, t: Date.now() };
+  const d = {
+    tipo, monto: valor, fecha: fd.get('fecha'), concepto: texto(fd.get('concepto')),
+    cuenta_id: texto(fd.get('cuenta_id')), bolsillo_id: texto(fd.get('bolsillo_id')),
+    categoria_id: tipo === 'egreso' ? texto(fd.get('categoria_id')) : null,
+    tercero_id: texto(fd.get('tercero_id')),
+    gasto_fijo_id: tipo === 'egreso' ? texto(fd.get('gasto_fijo_id')) : null,
+    credito_id: tipo === 'egreso' ? texto(fd.get('credito_id')) : null,
+  };
+  for (const [campo, tabla] of [['cuenta_id', 'cuentas'], ['bolsillo_id', 'bolsillos'], ['categoria_id', 'categorias_gasto'],
+    ['tercero_id', 'terceros'], ['gasto_fijo_id', 'gastos_fijos'], ['credito_id', 'creditos']]) {
+    if (d[campo]) await deLaEmpresa(q, tabla, d[campo], ctx.empresaId);
+  }
+  return d;
+}
+
+export const crearMovimiento = accion('libro', async (ctx, fd) => {
+  await transaccion(async q => {
+    const d = await datosMovimiento(q, ctx, fd);
+    await q(`insert into movimientos (empresa_id, fecha, tipo, cuenta_id, monto, concepto, categoria_id, bolsillo_id,
+               tercero_id, gasto_fijo_id, credito_id) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [ctx.empresaId, d.fecha, d.tipo, d.cuenta_id, d.monto, d.concepto, d.categoria_id, d.bolsillo_id,
+       d.tercero_id, d.gasto_fijo_id, d.credito_id]);
+  }, ctx.usuario.id);
+  return { ok: true, mensaje: `${fd.get('tipo') === 'ingreso' ? 'Ingreso' : 'Egreso'} guardado.`, t: Date.now() };
+});
+
+// Corregir un movimiento (queda el antes y el después en la auditoría). No se puede si el mes está cerrado.
+export const editarMovimiento = accion('libro', async (ctx, fd) => {
+  const id = texto(fd.get('id'));
+  await transaccion(async q => {
+    const [m] = await q('select empresa_id, clase, venta_pago_id from movimientos where id = $1', [id]);
+    exigir(m && m.empresa_id === ctx.empresaId, 'Movimiento no encontrado.');
+    exigir(!m.venta_pago_id, 'Este movimiento viene de una venta: corrígelo desde la venta.');
+    const d = await datosMovimiento(q, ctx, fd);
+    await q(`update movimientos set fecha=$2, tipo=$3, cuenta_id=$4, monto=$5, concepto=$6, categoria_id=$7, bolsillo_id=$8,
+               tercero_id=$9, gasto_fijo_id=$10, credito_id=$11 where id = $1`,
+      [id, d.fecha, d.tipo, d.cuenta_id, d.monto, d.concepto, d.categoria_id, d.bolsillo_id, d.tercero_id, d.gasto_fijo_id, d.credito_id]);
+  }, ctx.usuario.id);
+  return { ok: true, mensaje: 'Corregido.' };
+});
+
+// Anular = borrar el movimiento. Queda completo en la auditoría (quién, cuándo y qué era).
+export const anularMovimiento = accion('libro', async (ctx, fd) => {
+  const id = texto(fd.get('id'));
+  let mes;
+  await transaccion(async q => {
+    const [m] = await q(`select empresa_id, venta_pago_id, to_char(fecha, 'YYYY-MM') mes from movimientos where id = $1`, [id]);
+    mes = m?.mes;
+    exigir(m && m.empresa_id === ctx.empresaId, 'Movimiento no encontrado.');
+    exigir(!m.venta_pago_id, 'Este movimiento viene de una venta: anúlalo desde la venta.');
+    await q('update cobros set movimiento_id = null where movimiento_id = $1', [id]);
+    await q('update pedido_abonos set movimiento_id = null where movimiento_id = $1', [id]);
+    await q('delete from movimientos where id = $1', [id]);
+  }, ctx.usuario.id);
+  revalidatePath('/', 'layout');
+  redirect(`/libro?mes=${mes}&anulado=1`);
 });

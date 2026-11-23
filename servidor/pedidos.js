@@ -129,3 +129,15 @@ export const pagarProveedorPedido = accion('pedidos_costos', async (ctx, fd) => 
   }, ctx.usuario.id);
   return { ok: true, mensaje: 'Pago al proveedor registrado en el libro diario.' };
 });
+
+// Anular un abono registrado por error
+export const anularAbono = accion('pedidos', async (ctx, fd) => {
+  const id = texto(fd.get('abono_id'));
+  await transaccion(async q => {
+    const [a] = await q(`select p.empresa_id, a.movimiento_id from pedido_abonos a join pedidos p on p.id = a.pedido_id where a.id = $1`, [id]);
+    exigir(a && ctx.empresasCon('pedidos').includes(a.empresa_id), 'Abono no encontrado.');
+    await q('delete from pedido_abonos where id = $1', [id]);
+    if (a.movimiento_id) await q('delete from movimientos where id = $1', [a.movimiento_id]);
+  }, ctx.usuario.id);
+  return { ok: true, mensaje: 'Abono anulado.' };
+});

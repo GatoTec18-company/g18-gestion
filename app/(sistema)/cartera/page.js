@@ -6,7 +6,7 @@ import { hoy } from '@/lib/fechas';
 import { cop, fecha } from '@/lib/formato';
 import { Chip, Encabezado, Vacio } from '@/components/ui/Comunes';
 import FormAccion from '@/components/formularios/FormAccion';
-import { marcarAplicado, registrarCobro, revisarVenta } from '@/servidor/ventas';
+import { anularCobro, editarVenta, marcarAplicado, registrarCobro, revisarVenta } from '@/servidor/ventas';
 
 const ETAPAS = [
   ['por_confirmar', '1. Por confirmar', 'Registradas: verifica que la venta aparezca en la plataforma de la entidad.'],
@@ -27,7 +27,7 @@ export default async function Seguimiento({ searchParams }) {
   const ids = [...new Set([...ctx.empresasCon('cartera'), ...ctx.empresasCon('revision')])];
   const nombreEmpresa = Object.fromEntries(ctx.empresas.map(x => [x.id, x.nombre]));
   const varias = ids.length > 1;
-  const [ventas, entidades, cuentasTodas] = await Promise.all([
+  const [ventas, entidades, cuentasTodas, cobros] = await Promise.all([
     sql(`select * from v_cuentas_por_cobrar where empresa_id = any($1) order by fecha_estimada_pago nulls last, fecha_venta, creado_en`, [ids]),
     sql(`select ef.nombre, ef.regla, ef.valor, ef.dia_corte, x.*
          from (select distinct on (nombre) nombre, regla, valor, dia_corte from entidades_financiacion
@@ -41,7 +41,10 @@ export default async function Seguimiento({ searchParams }) {
            from v_cuentas_por_cobrar c where c.entidad = ef.nombre and c.empresa_id = any($1)) x
          order by ef.nombre`, [ids, e]),
     sql(`select id, empresa_id, nombre, tipo from cuentas where empresa_id = any($1) and activa and tipo in ('banco','billetera') order by (nombre = 'Bancos') desc, nombre`, [ids]),
+    sql(`select c.id, c.venta_pago_id, c.fecha, c.monto, cu.nombre cuenta from cobros c left join cuentas cu on cu.id = c.cuenta_id
+         join venta_pagos vp on vp.id = c.venta_pago_id join ventas v on v.id = vp.venta_id where v.empresa_id = any($1) order by c.fecha`, [ids]),
   ]);
+  const cobrosDe = vp => cobros.filter(c => c.venta_pago_id === vp);
   const cuentasDe = empresaId => cuentasTodas.filter(c => c.empresa_id === empresaId);
   const conteo = Object.fromEntries(ETAPAS.map(([k]) => [k, ventas.filter(v => v.etapa === k).length]));
   const porDefecto = ETAPAS.find(([k]) => k !== 'cerrada' && k !== 'rechazada' && conteo[k])?.[0] ?? 'esperando_pago';
@@ -105,6 +108,13 @@ export default async function Seguimiento({ searchParams }) {
                   {v.recibido > 0 && <span>Recibido: <b>{cop(v.recibido)}</b>{v.fecha_pago_real && ` el ${fecha(v.fecha_pago_real)}`}{v.cuenta_pago && ` en ${v.cuenta_pago}`}{v.pendiente > 0 && ` · faltan ${cop(v.pendiente)}`}</span>}
                   {v.aplicado_en && <span>Aplicada en factura el {fecha(new Date(v.aplicado_en).toISOString())}</span>}
                   {v.nota_revision && <span className="muted">Nota: {v.nota_revision}</span>}
+                  {puedeCobrar && cobrosDe(v.venta_pago_id).map(c => (
+                    <div key={c.id} className="mini">
+                      <span className="muted">Pago {fecha(c.fecha)} · {cop(c.monto)}{c.cuenta && ` · ${c.cuenta}`}</span>
+                      <FormAccion action={anularCobro} boton="Anular pago" className="mini" limpiar={false} confirmar="¿Anular este pago? La venta vuelve a quedar pendiente por ese valor.">
+                        <input type="hidden" name="cobro_id" value={c.id} />
+                      </FormAccion>
+                    </div>))}
                 </div>
 
                 <div className="tv-acciones">
@@ -137,6 +147,19 @@ export default async function Seguimiento({ searchParams }) {
                     </FormAccion>
                   )}
 
+                  {puedeConfirmar && v.etapa !== 'cerrada' && (
+                    <details><summary>Corregir datos</summary>
+                      <FormAccion action={editarVenta} boton="Guardar" className="formulario" limpiar={false}>
+                        <input type="hidden" name="venta_id" value={v.venta_id} />
+                        <label>Fecha<input type="date" name="fecha" defaultValue={v.fecha_venta} required /></label>
+                        <label>Valor<input name="total" defaultValue={v.monto} inputMode="numeric" required /></label>
+                        <label>Factura<input name="numero_factura" defaultValue={v.numero_factura ?? ''} /></label>
+                        <label className="ancho">Producto<input name="producto" defaultValue={v.producto ?? ''} required /></label>
+                        <label>Aprobación / ID<input name="referencia" defaultValue={v.referencia ?? ''} /></label>
+                        <label>Canal<input name="detalle" defaultValue={v.detalle ?? ''} /></label>
+                      </FormAccion>
+                    </details>
+                  )}
                   {v.etapa === 'cerrada' && puedeCobrar && (
                     <FormAccion action={marcarAplicado} boton="Reabrir" className="mini" limpiar={false} confirmar="¿Reabrir esta venta? Vuelve a 'por aplicar en factura'.">
                       <input type="hidden" name="venta_pago_id" value={v.venta_pago_id} /><input type="hidden" name="valor" value="no" />

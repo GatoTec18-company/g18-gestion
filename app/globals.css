@@ -172,3 +172,8 @@ details > summary { cursor: pointer; color: var(--marca); font-weight: 600; font
   .grilla { grid-template-columns: 1fr; }
   .formulario .ancho { grid-column: auto; }
 }
+
+.link-editar { text-decoration: none; color: var(--texto); border-bottom: 1px dashed var(--borde); }
+.link-editar:hover { color: var(--marca); border-color: var(--marca); }
+
+.estado-cierre { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; background: var(--azul-f); border-color: var(--azul-f); }
