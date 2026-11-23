@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Comprobantes from '@/components/ui/Comprobantes';
 import Acciones from '@/components/ui/Acciones';
 import { redirect } from 'next/navigation';
 import { sql } from '@/lib/db';
@@ -28,7 +29,7 @@ export default async function Seguimiento({ searchParams }) {
   const ids = [...new Set([...ctx.empresasCon('cartera'), ...ctx.empresasCon('revision')])];
   const nombreEmpresa = Object.fromEntries(ctx.empresas.map(x => [x.id, x.nombre]));
   const varias = ids.length > 1;
-  const [ventas, entidades, cuentasTodas, cobros] = await Promise.all([
+  const [ventas, entidades, cuentasTodas, cobros, adjuntos] = await Promise.all([
     sql(`select * from v_cuentas_por_cobrar where empresa_id = any($1) order by fecha_estimada_pago nulls last, fecha_venta, creado_en`, [ids]),
     sql(`select ef.nombre, ef.regla, ef.valor, ef.dia_corte, x.*
          from (select distinct on (nombre) nombre, regla, valor, dia_corte from entidades_financiacion
@@ -44,7 +45,9 @@ export default async function Seguimiento({ searchParams }) {
     sql(`select id, empresa_id, nombre, tipo from cuentas where empresa_id = any($1) and activa and tipo in ('banco','billetera') order by (nombre = 'Bancos') desc, nombre`, [ids]),
     sql(`select c.id, c.venta_pago_id, c.fecha, c.monto, cu.nombre cuenta from cobros c left join cuentas cu on cu.id = c.cuenta_id
          join venta_pagos vp on vp.id = c.venta_pago_id join ventas v on v.id = vp.venta_id where v.empresa_id = any($1) order by c.fecha`, [ids]),
+    sql(`select c.id, c.nombre, c.tipo, c.venta_id from comprobantes c join ventas v on v.id = c.venta_id where v.empresa_id = any($1) order by c.creado_en`, [ids]),
   ]);
+  const adjuntosDe = venta => adjuntos.filter(a => a.venta_id === venta);
   const cobrosDe = vp => cobros.filter(c => c.venta_pago_id === vp);
   const cuentasDe = empresaId => cuentasTodas.filter(c => c.empresa_id === empresaId);
   const conteo = Object.fromEntries(ETAPAS.map(([k]) => [k, ventas.filter(v => v.etapa === k).length]));
@@ -163,6 +166,7 @@ export default async function Seguimiento({ searchParams }) {
                       </FormAccion>
                     </details>
                   )}
+                  <Comprobantes destino="venta" id={v.venta_id} lista={adjuntosDe(v.venta_id)} compacto />
                   {v.etapa === 'cerrada' && puedeCobrar && (
                     <FormAccion action={marcarAplicado} boton="Reabrir" className="mini" limpiar={false} confirmar="¿Reabrir esta venta? Vuelve a 'por aplicar en factura'.">
                       <input type="hidden" name="venta_pago_id" value={v.venta_pago_id} /><input type="hidden" name="valor" value="no" />

@@ -2,11 +2,14 @@
 import { useEffect, useRef } from 'react';
 import { crearMovimiento } from '@/servidor/libro';
 import useEnvio from './useEnvio';
+import { comprimirCampo } from '@/lib/comprimir';
+
+const prepararFoto = fd => comprimirCampo(fd, 'comprobante');
 
 // Egreso de un medio fijo, como en la hoja: "pagos en efectivo" o "pagos desde cuentas".
 // Si el medio tiene varias cuentas (Bancos, Nequi, Daviplata) se elige cuál.
 export default function FormEgreso({ hoy, cuentas, bolsillos, categorias, proveedores, gastosFijos, creditos = [] }) {
-  const { estado, enviando, onSubmit } = useEnvio(crearMovimiento);
+  const { estado, enviando, onSubmit } = useEnvio(crearMovimiento, null, prepararFoto);
   const ref = useRef(null);
   useEffect(() => { if (estado?.ok) ref.current?.reset(); }, [estado]);
 
@@ -39,6 +42,7 @@ export default function FormEgreso({ hoy, cuentas, bolsillos, categorias, provee
               {creditos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></label>}
           </div>
         </details>
+        <label className="ancho">📎 Foto o PDF del comprobante (opcional)<input type="file" name="comprobante" accept="image/*,application/pdf" /></label>
         <div><button className="btn" disabled={enviando}>{enviando ? 'Guardando…' : 'Registrar egreso'}</button></div>
       </div>
       {estado?.mensaje && <p className={`aviso ${estado.ok ? 'ok' : 'error'}`}>{estado.mensaje}</p>}

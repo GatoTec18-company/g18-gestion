@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { transaccion } from '@/lib/db';
 import { fechaValida, monto, texto } from '@/lib/entrada';
+import { guardarComprobante } from '@/lib/comprobantes';
 import { accion, deLaEmpresa, exigir } from './comun';
 
 // Ventas del día (como la fila del día en la hoja: una casilla de efectivo y una de cuentas).
@@ -69,10 +70,11 @@ async function datosMovimiento(q, ctx, fd) {
 export const crearMovimiento = accion('libro', async (ctx, fd) => {
   await transaccion(async q => {
     const d = await datosMovimiento(q, ctx, fd);
-    await q(`insert into movimientos (empresa_id, fecha, tipo, cuenta_id, monto, concepto, categoria_id, bolsillo_id,
-               tercero_id, gasto_fijo_id, credito_id) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+    const [m] = await q(`insert into movimientos (empresa_id, fecha, tipo, cuenta_id, monto, concepto, categoria_id, bolsillo_id,
+               tercero_id, gasto_fijo_id, credito_id) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning id`,
       [ctx.empresaId, d.fecha, d.tipo, d.cuenta_id, d.monto, d.concepto, d.categoria_id, d.bolsillo_id,
        d.tercero_id, d.gasto_fijo_id, d.credito_id]);
+    await guardarComprobante(q, { empresaId: ctx.empresaId, destino: 'movimiento', registroId: m.id, archivo: fd.get('comprobante') });
   }, ctx.usuario.id);
   return { ok: true, mensaje: `${fd.get('tipo') === 'ingreso' ? 'Ingreso' : 'Egreso'} guardado.`, t: Date.now() };
 });

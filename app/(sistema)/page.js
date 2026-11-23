@@ -4,6 +4,8 @@ import { requerir } from '@/lib/sesion';
 import { hoy as hoyCol } from '@/lib/fechas';
 import { cop, nombreMes } from '@/lib/formato';
 import { Encabezado, SelectorMes } from '@/components/ui/Comunes';
+import ListaAlertas from '@/components/ui/ListaAlertas';
+import { alertas } from '@/lib/alertas';
 
 const TIPO_GASTO = {
   proveedores: 'Proveedores', inversion: 'Inversión', gasto_fijo: 'Gasto fijo', gasto_variable: 'Gasto variable',
@@ -47,7 +49,7 @@ export default async function Panel({ searchParams }) {
          from gastos_fijos_mes($1, $2)`, [e, mesInicio]),
   ]);
 
-  const porRevisar = (await sql(`select count(*) n from ventas where empresa_id = any($1) and revision = 'pendiente'`, [ctx.empresasCon('revision')]))[0].n;
+  const avisos = await alertas(ctx);
   const ventas = r?.ventas_caja ?? 0, egresos = r?.egresos ?? 0;
   const pctMeta = meta ? ventas / meta.meta_ventas : null;
   const totalGastos = gastos.reduce((s, g) => s + g.monto, 0);
@@ -80,14 +82,13 @@ export default async function Panel({ searchParams }) {
 
       <div className="grilla">
         <section className="caja">
-          <h2>Alertas</h2>
-          <ul className="alertas">
-            {porRevisar > 0 && <li>🔎 <span><b>{porRevisar}</b> ventas por confirmar en la plataforma · <Link href="/cartera?etapa=por_confirmar">revisar</Link></span></li>}
-            <li>⚠️ <span><b>{pasados} de {bols.length}</b> bolsillos gastaron este mes más de lo que les tocó por ventas</span></li>
-            <li>📦 <span>Pedidos (las dos empresas): <b>{ped.atrasados}</b> pedidos atrasados · <b>{ped.sin_valor}</b> sin valor · <b>{ped.por_pedir}</b> por pedir · saldo por cobrar <b>{cop(ped.saldo)}</b></span></li>
-            <li>💳 <span>Por cobrar a entidades (las dos empresas) <b>{cop(cxc.pendiente)}</b> · <b>{cxc.vencidas}</b> vencidas · <b>{cxc.por_vencer}</b> por vencer · <b>{cxc.sin_aplicar}</b> pagadas sin aplicar en factura</span></li>
-            <li>⏰ <span><b>{gf.vencidos}</b> gastos fijos vencidos · faltan <b>{cop(gf.por_pagar)}</b> por pagar del mes</span></li>
-            <li>📅 <span><b>{diasCon}</b> días con ventas · promedio por día con ventas <b>{cop(diasCon ? ventas / diasCon : 0)}</b></span></li>
+          <h2>Alertas <small><Link href="/alertas">ver todas</Link></small></h2>
+          <ListaAlertas lista={avisos} max={6} />
+          <ul className="alertas" style={{ marginTop: 8 }}>
+            {pasados > 0 && <li>⚠️ <span><b>{pasados} de {bols.length}</b> bolsillos gastaron este mes más de lo que les tocó por ventas</span></li>}
+            <li>📦 <span>Pedidos: saldo por cobrar a clientes <b>{cop(ped.saldo)}</b> · <b>{ped.sin_valor}</b> sin valor · <b>{ped.por_pedir}</b> por pedir</span></li>
+            <li>💳 <span>Por cobrar a entidades <b>{cop(cxc.pendiente)}</b></span></li>
+            <li>📅 <span><b>{diasCon}</b> días con ventas · promedio por día <b>{cop(diasCon ? ventas / diasCon : 0)}</b></span></li>
           </ul>
         </section>
 

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Comprobantes from '@/components/ui/Comprobantes';
 import { notFound } from 'next/navigation';
 import { sql, uno } from '@/lib/db';
 import { requerir } from '@/lib/sesion';
@@ -18,7 +19,7 @@ export default async function Pedido({ params, searchParams }) {
   const e = ctx.empresa.id;  // la plata (abonos y pagos) se registra en la empresa activa
   const p = await uno('select v.*, p.proveedor_id, p.abonado_previo from v_pedidos v join pedidos p on p.id = v.id where v.id = $1 and v.empresa_id = any($2)', [id, ctx.empresasCon('pedidos')]);
   if (!p) notFound();
-  const [items, historial, proveedores, proveedoresActiva, cuentas, bolsillos] = await Promise.all([
+  const [items, historial, proveedores, proveedoresActiva, cuentas, bolsillos, adjuntos] = await Promise.all([
     sql('select id, descripcion, cantidad, precio_venta from pedido_items where pedido_id = $1 order by descripcion', [id]),
     sql(`select a.fecha, 'Abono del cliente' concepto, a.monto, 'entra' sentido, c.nombre cuenta, m.nombre quien, a.creado_en, a.id abono_id, null::uuid mov_id
          from pedido_abonos a left join cuentas c on c.id = a.cuenta_id left join lateral (select nombre from miembros where user_id = a.registrado_por limit 1) m on true
@@ -32,6 +33,7 @@ export default async function Pedido({ params, searchParams }) {
     sql('select id, nombre from terceros where empresa_id = $1 and es_proveedor order by nombre', [e]),
     sql('select id, nombre, tipo from cuentas where empresa_id = $1 and activa order by tipo, nombre', [e]),
     verCostos ? sql('select id, codigo, nombre from bolsillos where empresa_id = $1 order by orden', [e]) : [],
+    sql('select id, nombre, tipo from comprobantes where pedido_id = $1 order by creado_en', [id]),
   ]);
   const hoyCol = hoy();
   const efectivo = cuentas.find(c => c.tipo === 'efectivo')?.id;
@@ -118,6 +120,11 @@ export default async function Pedido({ params, searchParams }) {
           </section>
         )}
       </div>
+
+      <section className="caja">
+        <h2>Comprobantes <small>recibos de abonos, factura del proveedor, guía de envío</small></h2>
+        <Comprobantes destino="pedido" id={id} lista={adjuntos} />
+      </section>
 
       <section className="caja">
         <h2>Historial de este pedido</h2>

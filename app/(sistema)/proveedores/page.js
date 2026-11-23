@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Comprobantes from '@/components/ui/Comprobantes';
 import Acciones from '@/components/ui/Acciones';
 import { sql } from '@/lib/db';
 import { requerir } from '@/lib/sesion';
@@ -14,7 +15,7 @@ export default async function Proveedores({ searchParams }) {
   const { empresa, sp } = await requerir(searchParams, 'proveedores');
   const e = empresa.id;
   const hoy = hoyCol();
-  const [provs, facturas, pagos, sinProv, lista] = await Promise.all([
+  const [provs, facturas, pagos, sinProv, lista, adjuntos] = await Promise.all([
     sql(`select * from v_estado_proveedores where empresa_id = $1 and (facturado > 0 or pagado > 0 or cupo_credito > 0) order by saldo desc, nombre`, [e]),
     // Facturas con lo pendiente de cada una: los pagos se aplican a las más antiguas primero
     sql(`with f as (
@@ -32,6 +33,7 @@ export default async function Proveedores({ searchParams }) {
          where m.empresa_id = $1 and m.tipo = 'egreso' and m.tercero_id is null and cg.tipo = 'proveedores'
          order by m.fecha desc`, [e]),
     sql(`select id, nombre from terceros where empresa_id = $1 and es_proveedor order by nombre`, [e]),
+    sql(`select c.id, c.nombre, c.tipo, c.factura_id from comprobantes c join facturas_proveedor f on f.id = c.factura_id where f.empresa_id = $1 order by c.creado_en`, [e]),
   ]);
   const estado = f => f.pendiente <= 0 ? 'Pagada' : f.fecha_vencimiento && f.fecha_vencimiento < hoy ? 'Vencida'
     : f.pendiente < f.monto ? 'Parcial' : 'Pendiente';
@@ -103,7 +105,8 @@ export default async function Proveedores({ searchParams }) {
                 <td className="nw">{fecha(f.fecha)}</td><td><b>{f.proveedor}</b></td><td>{f.numero ?? '—'}{f.observaciones && <div className="muted">{f.observaciones}</div>}</td>
                 <td className="muted">{DESTINO[f.destino]}</td><td className="nw">{fecha(f.fecha_vencimiento)}</td>
                 <td className="n">{cop(f.monto)}</td><td className="n">{cop(f.pendiente)}</td><td><Chip>{estado(f)}</Chip></td>
-                <td><FormAccion action={anularFactura} boton="Anular" className="mini" limpiar={false} confirmar={`¿Anular la factura de ${f.proveedor} por ${cop(f.monto)}?`}>
+                <td><Comprobantes destino="factura" id={f.id} lista={adjuntos.filter(x => x.factura_id === f.id)} compacto />
+                  <FormAccion action={anularFactura} boton="Anular" className="mini" limpiar={false} confirmar={`¿Anular la factura de ${f.proveedor} por ${cop(f.monto)}?`}>
                   <input type="hidden" name="factura_id" value={f.id} /></FormAccion></td>
               </tr>))}
             </tbody>

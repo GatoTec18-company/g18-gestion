@@ -20,7 +20,7 @@ function TablaEgresos({ filas }) {
       <tbody>{filas.map(m => (
         <tr key={m.id}>
           <td className="nw">{fecha(m.fecha).slice(0, 5)}</td>
-          <td><Link href={`/libro/movimiento/${m.id}`} className="link-editar" title="Corregir o anular">{m.concepto}</Link>{(m.tercero || m.gasto_fijo || m.pedido || m.cuenta_si_varias) &&
+          <td><Link href={`/libro/movimiento/${m.id}`} className="link-editar" title="Corregir o anular">{m.concepto}</Link>{m.adjuntos > 0 && <Link href={`/libro/movimiento/${m.id}`} className="clip" title="Tiene comprobante">📎{m.adjuntos > 1 ? m.adjuntos : ''}</Link>}{(m.tercero || m.gasto_fijo || m.pedido || m.cuenta_si_varias) &&
             <div className="muted">{[m.cuenta_si_varias, m.tercero, m.gasto_fijo, m.pedido].filter(Boolean).join(' · ')}</div>}</td>
           <td>{m.bolsillo}</td>
           <td className="muted">{m.categoria ?? '—'}</td>
@@ -37,7 +37,8 @@ export default async function Libro({ searchParams }) {
   const e = empresa.id;
   const [movs, cuentas, bolsillos, categorias, proveedores, gastosFijos, ventasDia, resumenBolsillos, creditos] = await Promise.all([
     sql(`select m.id, m.fecha, m.tipo, m.clase, m.monto, m.concepto, c.nombre cuenta, c.tipo cuenta_tipo, b.codigo bolsillo,
-            cg.nombre categoria, t.nombre tercero, g.concepto gasto_fijo, p.numero pedido
+            cg.nombre categoria, t.nombre tercero, g.concepto gasto_fijo, p.numero pedido,
+            (select count(*)::int from comprobantes x where x.movimiento_id = m.id) adjuntos
          from movimientos m join cuentas c on c.id = m.cuenta_id
          left join bolsillos b on b.id = m.bolsillo_id left join categorias_gasto cg on cg.id = m.categoria_id
          left join terceros t on t.id = m.tercero_id left join gastos_fijos g on g.id = m.gasto_fijo_id

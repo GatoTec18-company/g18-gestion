@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Comprobantes from '@/components/ui/Comprobantes';
 import { notFound } from 'next/navigation';
 import { sql, uno } from '@/lib/db';
 import { requerir } from '@/lib/sesion';
@@ -15,13 +16,14 @@ export default async function EditarMovimiento({ params, searchParams }) {
   const m = await uno(`select m.*, (select 1 from cierres_mes c where c.empresa_id = m.empresa_id and c.mes = date_trunc('month', m.fecha)::date) cerrado
                        from movimientos m where m.id = $1 and m.empresa_id = $2`, [id, e]);
   if (!m) notFound();
-  const [cuentas, bolsillos, categorias, proveedores, gastosFijos, creditos, historial] = await Promise.all([
+  const [cuentas, bolsillos, categorias, proveedores, gastosFijos, creditos, adjuntos, historial] = await Promise.all([
     sql(`select id, nombre from cuentas where empresa_id = $1 and (activa or id = $2) order by tipo, nombre`, [e, m.cuenta_id]),
     sql('select id, codigo, nombre from bolsillos where empresa_id = $1 order by orden', [e]),
     sql('select id, nombre from categorias_gasto where empresa_id = $1 and (activa or id = $2) order by nombre', [e, m.categoria_id]),
     sql('select id, nombre from terceros where empresa_id = $1 and es_proveedor order by nombre', [e]),
     sql('select id, concepto from gastos_fijos where empresa_id = $1 order by concepto', [e]),
     sql(`select id, entidad || coalesce(' · ' || descripcion, '') nombre from creditos where empresa_id = $1 and (activo or id = $2) order by entidad`, [e, m.credito_id]),
+    sql(`select id, nombre, tipo from comprobantes where movimiento_id = $1 order by creado_en`, [id]),
     sql(`select a.accion, a.fecha, coalesce(mi.nombre, 'sistema') quien from auditoria a
          left join lateral (select nombre from miembros where user_id = a.usuario limit 1) mi on true
          where a.tabla = 'movimientos' and a.registro_id = $1 order by a.fecha`, [id]),
@@ -35,6 +37,10 @@ export default async function EditarMovimiento({ params, searchParams }) {
       <Encabezado titulo={`Corregir ${egreso ? 'egreso' : 'ingreso'}`} sub={`${m.concepto} · ${cop(m.monto)} · ${fecha(m.fecha)}`}>
         <Link href={volver} className="btn-sec btn-link">Volver al libro</Link>
       </Encabezado>
+      <section className="caja">
+        <h2>Comprobantes <small>foto de la factura, transferencia o recibo</small></h2>
+        <Comprobantes destino="movimiento" id={m.id} lista={adjuntos} />
+      </section>
       {bloqueado ? (
         <section className="caja"><p>{m.cerrado ? 'Este movimiento es de un mes ya cerrado: no se puede cambiar. Si es necesario, el administrador debe reabrir el mes en Cierre de mes.'
           : 'Este movimiento viene de una venta: se corrige desde la venta.'}</p></section>

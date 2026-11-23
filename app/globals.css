@@ -197,3 +197,17 @@ details > summary { cursor: pointer; color: var(--marca); font-weight: 600; font
   .tabla-cont, .tabla-dias { overflow: visible; max-height: none; }
   a { text-decoration: none; color: inherit; }
 }
+
+/* Alertas */
+.alertas li.alerta-rojo { background: #fdecea; border-left: 4px solid #c0392b; }
+.alertas li.alerta-ambar { background: #fff6e0; border-left: 4px solid #d79b00; }
+.alertas li a { color: inherit; text-decoration: none; }
+.alertas li a:hover { text-decoration: underline; }
+
+/* Comprobantes */
+.comprobantes { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+.comprobante { position: relative; display: inline-block; }
+.comprobante img, .comprobante .pdf { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; border: 1px solid var(--borde); display: flex; align-items: center; justify-content: center; background: #fff; font-weight: 700; color: #c0392b; font-size: 13px; }
+.comprobante .quitar { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; border: 0; background: #c0392b; color: #fff; cursor: pointer; line-height: 20px; padding: 0; }
+.det-comprobantes summary { cursor: pointer; color: var(--marca); font-size: 13px; }
+.clip { font-size: 12px; text-decoration: none; margin-left: 4px; }
