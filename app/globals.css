@@ -300,3 +300,13 @@ details > summary { cursor: pointer; color: var(--marca); font-weight: 600; font
 .recibo-monto b { font-size: 24px; color: var(--marca); }
 .recibo-pie { text-align: center; margin: 8px 0 0; }
 @media print { .recibo { border: 0; max-width: none; } .contenido { padding: 0; } }
+
+/* Pantalla de carga entre módulos */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.cargando { display: grid; gap: 14px; }
+.esq { background: linear-gradient(90deg, #ece7f0 0%, #f6f2f8 50%, #ece7f0 100%); background-size: 200% 100%; border-radius: 12px; animation: brillo 1.1s ease-in-out infinite; }
+.esq-titulo { height: 34px; width: 45%; }
+.esq-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.esq-kpis .esq { height: 84px; }
+.esq-caja { height: 320px; }
+@keyframes brillo { from { background-position: 100% 0; } to { background-position: -100% 0; } }

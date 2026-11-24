@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { alertas } from '@/lib/alertas';
+import { alertasRapidas } from '@/lib/alertas';
 import { contexto } from '@/lib/sesion';
 import { ROLES } from '@/lib/permisos';
 import { sql } from '@/lib/db';
@@ -32,7 +32,7 @@ const MENU = [
 export default async function Sistema({ children }) {
   const ctx = await contexto();
   const items = MENU.filter(([, , p]) => p === 'admin' ? ctx.esAdmin : !p || ctx.puede(p) || (p === 'ventas_registrar' && ctx.puede('ventas_ver_todas')) || (p === 'cartera' && ctx.puede('revision')));
-  const avisos = await alertas(ctx);
+  const avisos = await alertasRapidas(ctx);
   const rojas = avisos.filter(a => a.nivel === 'rojo').length;
   let pendientes = 0;
   if (ctx.puede('revision')) {

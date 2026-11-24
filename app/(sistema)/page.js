@@ -5,7 +5,7 @@ import { hoy as hoyCol } from '@/lib/fechas';
 import { cop, nombreMes } from '@/lib/formato';
 import { Encabezado, SelectorMes } from '@/components/ui/Comunes';
 import ListaAlertas from '@/components/ui/ListaAlertas';
-import { alertas } from '@/lib/alertas';
+import { alertasRapidas } from '@/lib/alertas';
 
 const TIPO_GASTO = {
   proveedores: 'Proveedores', inversion: 'Inversión', gasto_fijo: 'Gasto fijo', gasto_variable: 'Gasto variable',
@@ -49,7 +49,7 @@ export default async function Panel({ searchParams }) {
          from gastos_fijos_mes($1, $2)`, [e, mesInicio]),
   ]);
 
-  const avisos = await alertas(ctx);
+  const avisos = await alertasRapidas(ctx);
   const ventas = r?.ventas_caja ?? 0, egresos = r?.egresos ?? 0;
   const pctMeta = meta ? ventas / meta.meta_ventas : null;
   const totalGastos = gastos.reduce((s, g) => s + g.monto, 0);

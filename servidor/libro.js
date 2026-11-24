@@ -1,6 +1,6 @@
 'use server';
 import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { transaccion } from '@/lib/db';
 import { fechaValida, monto, texto } from '@/lib/entrada';
 import { guardarComprobante } from '@/lib/comprobantes';
@@ -110,5 +110,6 @@ export const anularMovimiento = accion('libro', async (ctx, fd) => {
     await q('delete from movimientos where id = $1', [id]);
   }, ctx.usuario.id);
   revalidatePath('/', 'layout');
+  revalidateTag('alertas');
   redirect(`/libro?mes=${mes}&anulado=1`);
 });

@@ -1,5 +1,5 @@
 import 'server-only';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { contextoAccion, SinPermiso } from '@/lib/sesion';
 import { mensajeError } from '@/lib/entrada';
 
@@ -17,6 +17,7 @@ export function accion(permiso, fn) {
     try {
       const r = await fn(ctx, fd);
       revalidatePath('/', 'layout');
+      revalidateTag('alertas');
       return r ?? { ok: true, mensaje: 'Guardado.' };
     } catch (e) {
       if (e?.digest?.startsWith?.('NEXT_REDIRECT')) throw e;   // dejar pasar redirect()
