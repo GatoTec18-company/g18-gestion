@@ -21,7 +21,7 @@ export default async function EditarMovimiento({ params, searchParams }) {
     sql('select id, codigo, nombre from bolsillos where empresa_id = $1 order by orden', [e]),
     sql('select id, nombre from categorias_gasto where empresa_id = $1 and (activa or id = $2) order by nombre', [e, m.categoria_id]),
     sql('select id, nombre from terceros where empresa_id = $1 and es_proveedor order by nombre', [e]),
-    sql('select id, concepto from gastos_fijos where empresa_id = $1 order by concepto', [e]),
+    sql('select id, concepto from gastos_fijos where empresa_id = $1 or compartido or id = $2 order by concepto', [e, m.gasto_fijo_id]),
     sql(`select id, entidad || coalesce(' · ' || descripcion, '') nombre from creditos where empresa_id = $1 and (activo or id = $2) order by entidad`, [e, m.credito_id]),
     sql(`select id, nombre, tipo from comprobantes where movimiento_id = $1 order by creado_en`, [id]),
     sql(`select a.accion, a.fecha, coalesce(mi.nombre, 'sistema') quien from auditoria a

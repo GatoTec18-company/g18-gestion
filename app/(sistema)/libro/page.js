@@ -49,7 +49,7 @@ export default async function Libro({ searchParams }) {
     sql('select id, codigo, nombre from bolsillos where empresa_id = $1 order by orden', [e]),
     sql('select id, nombre from categorias_gasto where empresa_id = $1 and activa order by nombre', [e]),
     sql('select id, nombre from terceros where empresa_id = $1 and es_proveedor order by nombre', [e]),
-    sql('select id, concepto from gastos_fijos where empresa_id = $1 and activo order by concepto', [e]),
+    sql('select id, concepto from gastos_fijos where (empresa_id = $1 or compartido) and activo order by concepto', [e]),
     sql(`select m.fecha, m.cuenta_id, c.tipo, sum(m.monto) monto from movimientos m join cuentas c on c.id = m.cuenta_id
          where m.empresa_id = $1 and date_trunc('month', m.fecha) = $2::date and m.tipo = 'ingreso' and m.clase = 'operacion'
            and m.concepto like 'Ventas del día%' group by 1, 2, 3`, [e, mesInicio]),

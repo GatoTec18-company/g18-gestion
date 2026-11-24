@@ -178,10 +178,10 @@ export const guardarGastoFijo = accion('configuracion', async (ctx, fd) => {
     if (bol) await deLaEmpresa(q, 'bolsillos', bol, ctx.empresaId);
     if (id) {
       await deLaEmpresa(q, 'gastos_fijos', id, ctx.empresaId);
-      await q('update gastos_fijos set concepto=$2, dia_pago=$3, monto_previsto=$4, categoria_id=$5, bolsillo_id=$6, activo=$7 where id=$1',
-        [id, concepto, dia, previsto, cat, bol, fd.get('activo') === 'on']);
-    } else await q('insert into gastos_fijos (empresa_id, concepto, dia_pago, monto_previsto, categoria_id, bolsillo_id) values ($1,$2,$3,$4,$5,$6)',
-      [ctx.empresaId, concepto, dia, previsto, cat, bol]);
+      await q('update gastos_fijos set concepto=$2, dia_pago=$3, monto_previsto=$4, categoria_id=$5, bolsillo_id=$6, activo=$7, compartido=$8 where id=$1',
+        [id, concepto, dia, previsto, cat, bol, fd.get('activo') === 'on', fd.get('compartido') === 'on']);
+    } else await q('insert into gastos_fijos (empresa_id, concepto, dia_pago, monto_previsto, categoria_id, bolsillo_id, compartido) values ($1,$2,$3,$4,$5,$6,$7)',
+      [ctx.empresaId, concepto, dia, previsto, cat, bol, fd.get('compartido') === 'on']);
   }, ctx.usuario.id);
   return { ok: true, mensaje: 'Gasto fijo guardado.' };
 });

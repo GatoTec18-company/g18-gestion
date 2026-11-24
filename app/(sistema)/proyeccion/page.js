@@ -15,14 +15,22 @@ function Lista({ items, signo }) {
 }
 
 export default async function Proyeccion({ searchParams }) {
-  const { empresa } = await requerir(searchParams, 'reportes');
-  const p = await proyeccion(empresa.id);
+  const ctx = await requerir(searchParams, 'reportes');
+  const { empresa } = ctx;
+  const conReportes = ctx.empresasCon('reportes');
+  const juntas = ctx.sp.ver === 'juntas' && conReportes.length > 1;
+  const p = await proyeccion(juntas ? conReportes : empresa.id);
+  const nombre = juntas ? 'Las dos empresas juntas' : empresa.nombre;
   const ultima = p.semanas[p.semanas.length - 1];
   const primeraNegativa = p.semanas.find(s => s.saldoSinVentas < 0);
 
   return (
     <>
-      <Encabezado titulo="¿Me alcanza la plata?" sub={`${empresa.nombre} · próximas 5 semanas (hasta el ${fecha(p.fin)})`}>
+      <Encabezado titulo="¿Me alcanza la plata?" sub={`${nombre} · próximas 5 semanas (hasta el ${fecha(p.fin)})`}>
+        {conReportes.length > 1 && <div className="filtros no-imprimir" style={{ margin: 0 }}>
+          <Link href="/proyeccion" className={juntas ? '' : 'activo'}>{empresa.nombre}</Link>
+          <Link href="/proyeccion?ver=juntas" className={juntas ? 'activo' : ''}>Las dos juntas</Link>
+        </div>}
         <Acciones />
       </Encabezado>
 
@@ -55,6 +63,7 @@ export default async function Proyeccion({ searchParams }) {
             </tr>))}
           </tbody>
         </table></div>
+        {!juntas && conReportes.length > 1 && <p className="muted">Los gastos fijos <b>compartidos</b> salen completos aquí aunque los pague la otra empresa. Para ver el negocio completo sin contarlos dos veces, mira “Las dos juntas”.</p>}
         <p className="muted">“Ventas normales” es el promedio de lo vendido en los últimos {p.diasPromedio} días ({cop(p.ventaDia)} por día). Es una guía, no una promesa.</p>
       </section>
 

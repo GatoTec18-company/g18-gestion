@@ -61,8 +61,13 @@ async function datosMovimiento(q, ctx, fd) {
     credito_id: tipo === 'egreso' ? texto(fd.get('credito_id')) : null,
   };
   for (const [campo, tabla] of [['cuenta_id', 'cuentas'], ['bolsillo_id', 'bolsillos'], ['categoria_id', 'categorias_gasto'],
-    ['tercero_id', 'terceros'], ['gasto_fijo_id', 'gastos_fijos'], ['credito_id', 'creditos']]) {
+    ['tercero_id', 'terceros'], ['credito_id', 'creditos']]) {
     if (d[campo]) await deLaEmpresa(q, tabla, d[campo], ctx.empresaId);
+  }
+  // Los gastos fijos compartidos se pueden pagar desde cualquiera de las dos empresas
+  if (d.gasto_fijo_id) {
+    const [g] = await q('select empresa_id, compartido from gastos_fijos where id = $1', [d.gasto_fijo_id]);
+    exigir(g && (g.empresa_id === ctx.empresaId || (g.compartido && ctx.usuario.empresas.some(x => x.id === g.empresa_id))), 'Gasto fijo no encontrado.');
   }
   return d;
 }
