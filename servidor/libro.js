@@ -42,7 +42,9 @@ export const guardarVentasDia = accion('libro', async (ctx, fd) => {
 
 // Datos de un egreso/ingreso tomados del formulario, validados contra la empresa activa
 async function datosMovimiento(q, ctx, fd) {
-  const tipo = fd.get('tipo') === 'ingreso' ? 'ingreso' : 'egreso';
+  // "saldo_inicial": plata con la que arranca la caja; entra pero no cuenta como venta
+  const clase = fd.get('tipo') === 'saldo_inicial' ? 'saldo_inicial' : 'operacion';
+  const tipo = fd.get('tipo') === 'ingreso' || clase === 'saldo_inicial' ? 'ingreso' : 'egreso';
   const valor = monto(fd.get('monto'));
   exigir(fechaValida(fd.get('fecha')), 'Falta la fecha.');
   exigir(texto(fd.get('cuenta_id')), 'Elige la cuenta.');
@@ -53,7 +55,7 @@ async function datosMovimiento(q, ctx, fd) {
     exigir(texto(fd.get('categoria_id')), 'Un egreso necesita categoría.');
   }
   const d = {
-    tipo, monto: valor, fecha: fd.get('fecha'), concepto: texto(fd.get('concepto')),
+    tipo, clase, monto: valor, fecha: fd.get('fecha'), concepto: texto(fd.get('concepto')),
     cuenta_id: texto(fd.get('cuenta_id')), bolsillo_id: texto(fd.get('bolsillo_id')),
     categoria_id: tipo === 'egreso' ? texto(fd.get('categoria_id')) : null,
     tercero_id: texto(fd.get('tercero_id')),
@@ -76,12 +78,12 @@ export const crearMovimiento = accion('libro', async (ctx, fd) => {
   await transaccion(async q => {
     const d = await datosMovimiento(q, ctx, fd);
     const [m] = await q(`insert into movimientos (empresa_id, fecha, tipo, cuenta_id, monto, concepto, categoria_id, bolsillo_id,
-               tercero_id, gasto_fijo_id, credito_id) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning id`,
+               tercero_id, gasto_fijo_id, credito_id, clase) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning id`,
       [ctx.empresaId, d.fecha, d.tipo, d.cuenta_id, d.monto, d.concepto, d.categoria_id, d.bolsillo_id,
-       d.tercero_id, d.gasto_fijo_id, d.credito_id]);
+       d.tercero_id, d.gasto_fijo_id, d.credito_id, d.clase]);
     await guardarComprobante(q, { empresaId: ctx.empresaId, destino: 'movimiento', registroId: m.id, archivo: fd.get('comprobante') });
   }, ctx.usuario.id);
-  return { ok: true, mensaje: `${fd.get('tipo') === 'ingreso' ? 'Ingreso' : 'Egreso'} guardado.`, t: Date.now() };
+  return { ok: true, mensaje: `${fd.get('tipo') === 'saldo_inicial' ? 'Saldo inicial' : fd.get('tipo') === 'ingreso' ? 'Ingreso' : 'Egreso'} guardado.`, t: Date.now() };
 });
 
 // Corregir un movimiento (queda el antes y el después en la auditoría). No se puede si el mes está cerrado.
