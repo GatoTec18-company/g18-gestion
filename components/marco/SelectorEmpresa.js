@@ -1,15 +1,21 @@
 'use client';
 import { useEffect, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { cambiarEmpresa } from '@/servidor/sesion';
 
-// Selector controlado: no usa <form action> porque React reinicia el formulario
-// al terminar y el selector volvía a mostrar la empresa anterior.
+const CANAL = 'g18-empresa';
+
+// Al cambiar de empresa se recarga la página completa, para que ningún formulario se quede con
+// cuentas o bolsillos de la empresa anterior. También avisa a las otras ventanas abiertas de la app.
 export default function SelectorEmpresa({ empresas, actual }) {
   const [valor, setValor] = useState(actual);
   const [cambiando, iniciar] = useTransition();
-  const router = useRouter();
   useEffect(() => { setValor(actual); }, [actual]);
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') return;
+    const c = new BroadcastChannel(CANAL);
+    c.onmessage = e => { if (e.data !== actual) window.location.reload(); };
+    return () => c.close();
+  }, [actual]);
 
   if (empresas.length < 2) return <div className="empresa-sel"><span>Empresa</span><b>{empresas[0]?.nombre}</b></div>;
   const alCambiar = e => {
@@ -17,7 +23,11 @@ export default function SelectorEmpresa({ empresas, actual }) {
     setValor(id);
     const fd = new FormData();
     fd.set('empresa', id);
-    iniciar(async () => { await cambiarEmpresa(fd); router.refresh(); });
+    iniciar(async () => {
+      await cambiarEmpresa(fd);
+      try { const c = new BroadcastChannel(CANAL); c.postMessage(id); c.close(); } catch {}
+      window.location.reload();
+    });
   };
   return (
     <label className="empresa-sel">

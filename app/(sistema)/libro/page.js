@@ -107,7 +107,7 @@ export default async function Libro({ searchParams }) {
       <div className="dos">
         <section className="caja">
           <h2>Registrar ventas del día</h2>
-          <FormVentasDia key={diaElegido} hoy={diaElegido} cuentaEfectivo={cuentasEfectivo[0]}
+          <FormVentasDia key={`${e}-${diaElegido}`} hoy={diaElegido} cuentaEfectivo={cuentasEfectivo[0]}
             cuentasBanco={cuentasBanco} porDia={porDia} />
         </section>
         <section className="caja">
