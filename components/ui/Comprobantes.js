@@ -1,6 +1,7 @@
 'use client';
 import { useRef, useState, useTransition } from 'react';
 import { comprimir } from '@/lib/comprimir';
+import { agregarEmpresa } from '@/components/formularios/useEnvio';
 import { borrarComprobante, subirComprobante } from '@/servidor/comprobantes';
 
 // Lista de comprobantes de un registro con botón para adjuntar (foto con la cámara del celular o PDF).
@@ -18,11 +19,12 @@ export default function Comprobantes({ destino, id, lista = [], compacto = false
     try { listo = await comprimir(archivo); } catch (err) { setAviso({ ok: false, mensaje: err.message }); return; }
     const fd = new FormData();
     fd.set('destino', destino); fd.set('id', id); fd.set('archivo', listo);
+    agregarEmpresa(fd);
     iniciar(async () => setAviso(await subirComprobante(null, fd)));
   };
   const quitar = cid => {
     if (!window.confirm('¿Quitar este comprobante?')) return;
-    const fd = new FormData(); fd.set('id', cid);
+    const fd = agregarEmpresa(new FormData()); fd.set('id', cid);
     iniciar(async () => setAviso(await borrarComprobante(null, fd)));
   };
 

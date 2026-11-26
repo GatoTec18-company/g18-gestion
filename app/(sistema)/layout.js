@@ -49,7 +49,7 @@ export default async function Sistema({ children }) {
           <form action={cerrarSesion}><button className="btn-salir">Cerrar sesión</button></form>
         </div>
       </Lateral>
-      <main className="contenido">{children}</main>
+      <main className="contenido" data-empresa={ctx.empresa.id}>{children}</main>
     </div>
   );
 }

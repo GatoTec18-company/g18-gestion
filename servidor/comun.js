@@ -9,7 +9,7 @@ export function accion(permiso, fn) {
   return async (_prev, fd) => {
     let ctx;
     try {
-      ctx = await contextoAccion(permiso);
+      ctx = await contextoAccion(permiso, typeof fd?.get === 'function' ? String(fd.get('_empresa') ?? '') : null);
     } catch (e) {
       if (e instanceof SinPermiso) return { ok: false, mensaje: e.message };
       throw e;
